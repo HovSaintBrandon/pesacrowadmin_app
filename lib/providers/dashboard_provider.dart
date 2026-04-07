@@ -8,9 +8,9 @@ class DashboardProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  // Date range — defaults to current year
-  String _fromDate = '${DateTime.now().year}-01-01';
-  String _toDate = '${DateTime.now().year}-12-31';
+  // Date range — defaults to last 24 hours
+  String _fromDate = DateTime.now().subtract(const Duration(hours: 24)).toIso8601String().substring(0, 10);
+  String _toDate = DateTime.now().toIso8601String().substring(0, 10);
 
   Map<String, dynamic>? get stats => _stats;
   bool get isLoading => _isLoading;
@@ -18,22 +18,34 @@ class DashboardProvider extends ChangeNotifier {
   String get fromDate => _fromDate;
   String get toDate => _toDate;
 
-  // Convenience getters
-  double get totalVolume =>
-      (_stats?['data']?['totalVolume'] ?? _stats?['totalVolume'] ?? 0).toDouble();
-  double get totalRevenue =>
-      (_stats?['data']?['totalRevenue'] ?? _stats?['totalRevenue'] ?? 0).toDouble();
-  int get activeDeals =>
-      (_stats?['data']?['activeDeals'] ?? _stats?['activeDeals'] ?? 0).toInt();
-  int get pendingDeals =>
-      (_stats?['data']?['pendingDeals'] ?? _stats?['pendingDeals'] ?? 0).toInt();
-  int get completedDeals =>
-      (_stats?['data']?['completedDeals'] ?? _stats?['completedDeals'] ?? 0).toInt();
-  int get disputedDeals =>
-      (_stats?['data']?['disputedDeals'] ?? _stats?['disputedDeals'] ?? 0).toInt();
+  // Convenience getters mapping to the /admin/reports endpoint
+  Map<String, dynamic> get _data => _stats?['data'] ?? _stats ?? {};
+
+  double get totalVolume => (_data['totalVolume'] ?? 0).toDouble();
+  double get totalEarned => (_data['totalEarned'] ?? 0).toDouble();
+  double get transactionFees => (_data['transactionFees'] ?? 0).toDouble();
+  double get releaseFees => (_data['releaseFees'] ?? 0).toDouble();
+  double get holdingFees => (_data['holdingFees'] ?? 0).toDouble();
+  
+  int get totalDeals => (_data['totalCount'] ?? 0).toInt();
+  int get activeDeals => (_data['activeCount'] ?? 0).toInt();
+  int get pendingDeals => (_data['pendingCount'] ?? 0).toInt();
+  int get completedDeals => (_data['completedCount'] ?? 0).toInt();
+  int get disputedDeals => (_data['disputeCount'] ?? 0).toInt();
+  int get refundedDeals => (_data['refundedCount'] ?? 0).toInt();
+
   Map<String, dynamic> get statusDistribution {
-    final raw = _stats?['data']?['statusDistribution'] ?? _stats?['statusDistribution'] ?? {};
-    return Map<String, dynamic>.from(raw);
+    // If the endpoint doesn't provide a map, we can reconstruct it from individual counts
+    if (_data.containsKey('statusDistribution')) {
+      return Map<String, dynamic>.from(_data['statusDistribution']);
+    }
+    return {
+      'pending_payment': pendingDeals,
+      'active': activeDeals,
+      'completed': completedDeals,
+      'disputed': disputedDeals,
+      'refunded': refundedDeals,
+    };
   }
 
   Future<void> fetchReports({String? from, String? to}) async {

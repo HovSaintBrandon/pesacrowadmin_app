@@ -32,8 +32,10 @@ class Deal {
   });
 
   factory Deal.fromJson(Map<String, dynamic> json) {
+    final fees = json['feesApplied'] as Map<String, dynamic>? ?? {};
+    
     return Deal(
-      transactionId: json['transactionId'] ?? '',
+      transactionId: json['transactionId'] ?? json['_id'] ?? '',
       amount: (json['amount'] ?? 0).toDouble(),
       description: json['description'] ?? '',
       sellerPhone: json['sellerPhone'] ?? '',
@@ -41,12 +43,12 @@ class Deal {
       status: json['status'] ?? '',
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
-      transactionFee: (json['transactionFee'] ?? 0).toDouble(),
-      releaseFee: (json['releaseFee'] ?? 0).toDouble(),
+      transactionFee: (fees['transactionFee'] ?? json['transactionFee'] ?? 0).toDouble(),
+      releaseFee: (fees['releaseFee'] ?? json['releaseFee'] ?? 0).toDouble(),
       mpesaReceipt: json['mpesaReceipt'],
       disputeReason: json['disputeReason'],
-      proofs: List<Map<String, String>>.from(json['proofs'] ?? []),
-      statusHistory: List<Map<String, String>>.from(json['statusHistory'] ?? []),
+      proofs: json['proofs'] != null ? List<Map<String, String>>.from((json['proofs'] as List).map((p) => Map<String, String>.from(p))) : [],
+      statusHistory: json['statusHistory'] != null ? List<Map<String, String>>.from((json['statusHistory'] as List).map((h) => Map<String, String>.from(h))) : [],
     );
   }
 

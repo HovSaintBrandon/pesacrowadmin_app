@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../models/mpesa_balance.dart';
+import '../models/mpesa_balance_snapshot.dart';
 import '../services/admin_service.dart';
 
 class MpesaProvider extends ChangeNotifier {
   final AdminService _adminService = AdminService();
 
   List<MpesaBalance> _balances = [];
+  List<MpesaBalanceSnapshot> _history = [];
   bool _isLoading = false;
   String? _lastResult;
 
   List<MpesaBalance> get balances => _balances;
+  List<MpesaBalanceSnapshot> get history => _history;
   bool get isLoading => _isLoading;
   String? get lastResult => _lastResult;
 
@@ -36,7 +39,10 @@ class MpesaProvider extends ChangeNotifier {
 
   Future<bool> queryBalance(String remarks) async {
     final success = await _run(() => _adminService.queryBalance(remarks));
-    if (success) await fetchLatestBalance();
+    if (success) {
+      await fetchLatestBalance();
+      await fetchBalanceHistory();
+    }
     return success;
   }
 
@@ -45,6 +51,16 @@ class MpesaProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _balances = await _adminService.getLatestBalance();
+    } catch (_) {}
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> fetchBalanceHistory() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      _history = await _adminService.getBalanceHistory();
     } catch (_) {}
     _isLoading = false;
     notifyListeners();

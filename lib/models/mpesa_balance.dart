@@ -10,10 +10,11 @@ class MpesaBalance {
   });
 
   factory MpesaBalance.fromJson(Map<String, dynamic> json) {
+    print('📦 MpesaBalance.fromJson: $json');
     return MpesaBalance(
-      accountType: json['AccountType'] ?? json['accountType'] ?? '',
-      amount: (json['Amount'] ?? json['amount'] ?? 0).toDouble(),
-      currency: json['Currency'] ?? json['currency'] ?? 'KES',
+      accountType: json['name'] ?? json['accountType'] ?? '',
+      amount: double.tryParse((json['available'] ?? json['working'] ?? json['amount'] ?? '0').toString()) ?? 0.0,
+      currency: json['currency'] ?? 'KES',
     );
   }
 }

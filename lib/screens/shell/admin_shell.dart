@@ -7,6 +7,7 @@ import '../disputes/disputes_page.dart';
 import '../fees/fees_page.dart';
 import '../blacklist/blacklist_page.dart';
 import '../mpesa/mpesa_tools_page.dart';
+import '../mpesa/org_balances_page.dart';
 import '../disbursement/disbursement_page.dart';
 import '../admin_management/admin_management_page.dart';
 
@@ -22,6 +23,7 @@ class _AdminShellState extends State<AdminShell> {
 
   static const _navItems = [
     _NavItem(Icons.dashboard_outlined, 'Dashboard'),
+    _NavItem(Icons.account_balance_outlined, 'Org Balances'),
     _NavItem(Icons.receipt_long_outlined, 'Transactions'),
     _NavItem(Icons.gavel_outlined, 'Disputes'),
     _NavItem(Icons.tune_outlined, 'Fee Management'),
@@ -35,6 +37,7 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     final pages = [
       const DashboardPage(),
+      const OrgBalancesPage(),
       const TransactionsPage(),
       const DisputesPage(),
       const FeesPage(),

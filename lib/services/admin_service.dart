@@ -6,6 +6,7 @@ import '../models/deal.dart';
 import '../models/blacklist_item.dart';
 import '../models/fee_config.dart';
 import '../models/mpesa_balance.dart';
+import '../models/mpesa_balance_snapshot.dart';
 
 class AdminService {
   final ApiService _api = ApiService();
@@ -67,10 +68,21 @@ class AdminService {
     final res = await _api.get('/admin/transactions', query: query);
     final data = Map<String, dynamic>.from(jsonDecode(res.body));
     if (data['success'] == true) {
-      final rawList = data['data'] is List ? data['data'] : [];
+      final innerData = data['data'];
+      List rawList = [];
+      int total = 0;
+      
+      if (innerData is List) {
+        rawList = innerData;
+        total = data['total'] ?? rawList.length;
+      } else if (innerData is Map) {
+        rawList = innerData['transactions'] ?? [];
+        total = innerData['total'] ?? data['total'] ?? rawList.length;
+      }
+
       return <String, dynamic>{
-        'deals': (rawList as List).map((t) => Deal.fromJson(Map<String, dynamic>.from(t))).toList(),
-        'total': (data['total'] ?? rawList.length).toInt(),
+        'deals': rawList.map((t) => Deal.fromJson(Map<String, dynamic>.from(t))).toList(),
+        'total': total.toInt(),
         'page': (data['page'] ?? page).toInt(),
       };
     }
@@ -223,7 +235,20 @@ class AdminService {
     if (data['success'] == true) {
       final raw = data['data'];
       if (raw is List) return raw.map((b) => MpesaBalance.fromJson(b)).toList();
-      if (raw is Map) return [MpesaBalance.fromJson(raw as Map<String, dynamic>)];
+      if (raw is Map) {
+        final accounts = (raw['accounts'] ?? raw['balances']) as List?;
+        if (accounts != null) return accounts.map((b) => MpesaBalance.fromJson(b)).toList();
+        return [MpesaBalance.fromJson(Map<String, dynamic>.from(raw))];
+      }
+    }
+    return [];
+  }
+
+  Future<List<MpesaBalanceSnapshot>> getBalanceHistory() async {
+    final res = await _api.get('/admin/mpesa/balance/history');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] is List) {
+      return (data['data'] as List).map((s) => MpesaBalanceSnapshot.fromJson(Map<String, dynamic>.from(s))).toList();
     }
     return [];
   }
