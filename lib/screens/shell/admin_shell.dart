@@ -63,13 +63,11 @@ class _AdminShellState extends State<AdminShell> {
               height: 56,
               padding: EdgeInsets.symmetric(horizontal: _sidebarExpanded ? 16 : 12),
               child: Row(children: [
-                Container(
-                  width: 32, height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.shield, color: Color(0xFF0F172A), size: 18),
+                Image.asset(
+                  'assets/mpesacrowlogo.png',
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.contain,
                 ),
                 if (_sidebarExpanded) ...[
                   const SizedBox(width: 10),

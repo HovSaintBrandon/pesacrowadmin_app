@@ -80,6 +80,16 @@ class AdminManagementProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteAdmin(String id) async {
+    try {
+      final success = await _adminService.deleteAdmin(id);
+      if (success) await fetchAdmins();
+      return success;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> fetchAuditLogs({int page = 1, String? action}) async {
     _isLoading = true;
     notifyListeners();

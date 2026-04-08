@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
+import '../models/admin.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AdminService _adminService = AdminService();
@@ -7,11 +8,13 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isInitialized = false;
   String? _error;
+  Admin? _currentUser;
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
   String? get error => _error;
+  Admin? get currentUser => _currentUser;
 
   Future<void> loadPersistedAuth() async {
     _isLoading = true;
@@ -20,6 +23,9 @@ class AuthProvider extends ChangeNotifier {
     // AdminService uses ApiService singleton; wait for initialization
     _isInitialized = true;
     _isAuthenticated = _adminService.hasToken;
+    if (_isAuthenticated) {
+      _currentUser = await _adminService.getProfile();
+    }
     _isLoading = false;
     notifyListeners();
   }
@@ -33,6 +39,15 @@ class AuthProvider extends ChangeNotifier {
       final res = await _adminService.login(email, password);
       if (res['success']) {
         _isAuthenticated = true;
+        
+        // Attempt to extract profile directly from the login response for speed/reliability
+        final adminData = res['data']?['admin'] ?? res['data']?['user'];
+        if (adminData != null && adminData is Map<String, dynamic>) {
+          _currentUser = Admin.fromJson(adminData);
+        } else {
+          _currentUser = await _adminService.getProfile();
+        }
+        
         _isLoading = false;
         notifyListeners();
         return true;
@@ -51,6 +66,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await _adminService.logout();
     _isAuthenticated = false;
+    _currentUser = null;
     notifyListeners();
   }
 }

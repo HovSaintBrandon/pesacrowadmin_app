@@ -386,6 +386,22 @@ class _DetailPanel extends StatelessWidget {
             ),
           ),
         ],
+        if (['pending_payment', 'held'].contains(d.status)) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showCancelDialog(context, d.transactionId),
+              icon: const Icon(Icons.cancel, size: 16, color: Color(0xFFFACC15)),
+              label: const Text('Cancel Deal',
+                  style: TextStyle(color: Color(0xFFFACC15))),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFFACC15)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
       ]),
     );
   }
@@ -429,6 +445,34 @@ class _DetailPanel extends StatelessWidget {
                   ok ? 'Reversal initiated' : 'Reversal failed', isError: !ok);
             },
             child: const Text('Confirm Reversal'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCancelDialog(BuildContext context, String txId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF141E33),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Cancel Deal'),
+        content: const Text('Are you sure you want to cancel this deal? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No, Keep')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await dealProvider.cancelDeal(txId);
+              AppUtils.showSnackBar(context,
+                  ok ? 'Deal cancelled successfully' : 'Failed to cancel deal', isError: !ok);
+              if (ok) {
+                dealProvider.selectDeal(null);
+              }
+            },
+            child: const Text('Yes, Cancel Deal'),
           ),
         ],
       ),

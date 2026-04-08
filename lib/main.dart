@@ -57,8 +57,20 @@ class AuthGate extends StatelessWidget {
 
     if (!auth.isInitialized) {
       Future.microtask(() => auth.loadPersistedAuth());
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/mpesacrowlogo.png',
+                height: 120,
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(),
+            ],
+          ),
+        ),
       );
     }
 

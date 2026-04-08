@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/admin_management_provider.dart';
 import '../../models/admin.dart';
 
@@ -241,7 +242,7 @@ class _AdminsTab extends StatelessWidget {
             Expanded(flex: 3, child: Text('PERMISSIONS',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                     color: Color(0xFF64748B), letterSpacing: 0.5))),
-            SizedBox(width: 48),
+            SizedBox(width: 96),
           ]),
         ),
         Expanded(
@@ -307,14 +308,63 @@ class _AdminRow extends StatelessWidget {
           ],
         )),
         SizedBox(
-          width: 48,
-          child: IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
-            tooltip: 'Edit Permissions',
-            onPressed: () => _showPermissionsDialog(context),
+          width: 96,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
+                tooltip: 'Edit Permissions',
+                onPressed: () => _showPermissionsDialog(context),
+              ),
+              _buildDeleteButton(context),
+            ],
           ),
         ),
       ]),
+    );
+  }
+
+  Widget _buildDeleteButton(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final me = auth.currentUser;
+    if (me == null) return const SizedBox();
+
+    // Guard 1: Self-deletion
+    if (admin.id == me.id) return const SizedBox(width: 40);
+
+    // Guard 2: Hierarchy
+    final isTargetSuper = admin.role == 'super_admin';
+    final amISuper = me.role == 'super_admin';
+    if (isTargetSuper && !amISuper) return const SizedBox(width: 40);
+
+    return IconButton(
+      icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+      tooltip: 'Delete Admin',
+      onPressed: () => _confirmDelete(context),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF141E33),
+        title: const Text('Delete Admin Account?'),
+        content: Text('Are you sure you want to permanently delete ${admin.name} (${admin.email})? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await context.read<AdminManagementProvider>().deleteAdmin(admin.id);
+              AppUtils.showSnackBar(context, ok ? 'Admin deleted successfully' : 'Failed to delete admin', isError: !ok);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 

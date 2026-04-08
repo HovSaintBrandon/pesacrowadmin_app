@@ -82,4 +82,8 @@ class DealProvider extends ChangeNotifier {
   Future<bool> triggerReversal(String transactionId, String remarks) async {
     return await _adminService.triggerReversal(transactionId, remarks);
   }
+
+  Future<bool> cancelDeal(String transactionId) async {
+    return await _adminService.cancelDeal(transactionId);
+  }
 }

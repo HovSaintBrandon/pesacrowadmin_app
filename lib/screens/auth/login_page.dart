@@ -44,13 +44,9 @@ class _LoginPageState extends State<LoginPage> {
             border: Border.all(color: const Color(0xFF1E3A5F)),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.lock, color: Color(0xFF0F172A), size: 24),
+            Image.asset(
+              'assets/mpesacrowlogo.png',
+              height: 100,
             ),
             const SizedBox(height: 16),
             const Text('PesaCrow Admin',

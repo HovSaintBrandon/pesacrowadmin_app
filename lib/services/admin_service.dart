@@ -25,6 +25,22 @@ class AdminService {
 
   Future<void> logout() async => await _api.clearToken();
 
+  Future<Admin?> getProfile() async {
+    try {
+      final res = await _api.get('/admin/profile');
+      final data = jsonDecode(res.body);
+      
+      // Handle both { "success": true, "data": {...} } and direct {...}
+      final profileData = (data is Map && data['data'] != null) ? data['data'] : data;
+      if (profileData is Map<String, dynamic>) {
+        return Admin.fromJson(profileData);
+      }
+    } catch (e) {
+      print('❌ AdminService: Error fetching profile: $e');
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>> impersonate(String phone) async {
     final res = await _api.post('/admin/impersonate', body: {'phone': phone});
     return Map<String, dynamic>.from(jsonDecode(res.body));
@@ -34,7 +50,13 @@ class AdminService {
   Future<FeeConfig?> getFeeConfig() async {
     final res = await _api.get('/admin/fees');
     final data = jsonDecode(res.body);
-    if (data['success'] == true) return FeeConfig.fromJson(data['data']);
+    if (data['success'] == true) {
+      final innerData = data['data'];
+      if (innerData != null && innerData['fees'] != null) {
+        return FeeConfig.fromJson(innerData['fees']);
+      }
+      return FeeConfig.fromJson(innerData);
+    }
     return null;
   }
 
@@ -120,6 +142,11 @@ class AdminService {
     return jsonDecode(res.body)['success'] ?? false;
   }
 
+  Future<bool> cancelDeal(String transactionId) async {
+    final res = await _api.post('/deals/$transactionId/cancel');
+    return jsonDecode(res.body)['success'] ?? false;
+  }
+
   // ─── DISPUTE RESOLUTION ───────────────────────────────────────────────────
   Future<bool> resolveDispute(String transactionId, String decision, String resolution) async {
     final res = await _api.post('/admin/resolve-dispute/$transactionId', body: {
@@ -165,15 +192,29 @@ class AdminService {
   }
 
   Future<List<String>> getAllPermissions() async {
-    final res = await _api.get('/admin/permissions');
-    final data = jsonDecode(res.body);
-    
-    // The backend returns a list of objects {key, description} 
-    // and doesn't always include a 'success' field for this endpoint.
-    if (data['data'] != null && data['data'] is List) {
-      return (data['data'] as List).map((p) => p['key'] as String).toList();
+    try {
+      final res = await _api.get('/admin/permissions');
+      final data = jsonDecode(res.body);
+      
+      List listData;
+      if (data is List) {
+        listData = data;
+      } else if (data is Map && data['data'] is List) {
+        listData = data['data'];
+      } else {
+        return [];
+      }
+
+      return listData.map((p) {
+        if (p is Map) {
+          return (p['key'] ?? p['name'] ?? p['id'] ?? '').toString();
+        }
+        return p.toString();
+      }).where((s) => s.isNotEmpty).toList().cast<String>();
+    } catch (e) {
+      print('❌ AdminService: Error fetching permissions: $e');
+      return [];
     }
-    return [];
   }
 
   Future<bool> updateAdminPermissions(String adminId, List<String> permissions) async {
@@ -186,6 +227,11 @@ class AdminService {
       'currentPassword': currentPassword,
       'newPassword': newPassword,
     });
+    return jsonDecode(res.body)['success'] ?? false;
+  }
+
+  Future<bool> deleteAdmin(String id) async {
+    final res = await _api.delete('/admin/$id');
     return jsonDecode(res.body)['success'] ?? false;
   }
 

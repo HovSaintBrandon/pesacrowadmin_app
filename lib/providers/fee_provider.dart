@@ -18,9 +18,11 @@ class FeeProvider extends ChangeNotifier {
   void _loadInitialConfig() {
     // Basic defaults while loading
     _config = FeeConfig(
-      transactionFee: TransactionFeeConfig(percentage: 2.0, minimum: 100),
-      releaseFee: ReleaseFeeConfig(percentage: 1.5, minimum: 100),
+      transactionFee: TransactionFeeConfig(percentage: 2.0, minimum: 20),
+      releaseFee: ReleaseFeeConfig(percentage: 1.5, minimum: 10),
+      holdingFee: HoldingFeeConfig(percentage: 0.5, flatAdmin: 50),
       inactivityFee: InactivityFeeConfig(ratePerWeek: 0.1, graceDays: 7),
+      disputeFee: DisputeFeeConfig(flat: 500, percentage: 0, cap: 2000),
       bouquetRevenueShare: 0.5,
       tiers: [],
     );
