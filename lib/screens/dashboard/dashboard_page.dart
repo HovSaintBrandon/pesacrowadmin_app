@@ -28,18 +28,16 @@ class _DashboardPageState extends State<DashboardPage> {
       lastDate: DateTime(2028),
       builder: (ctx, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(primary: Color(0xFF10B981), onPrimary: Colors.white, surface: Color(0xFF1E293B)),
+          colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF10B981), onPrimary: Colors.white, surface: Color(0xFF1E293B)),
         ),
         child: child!,
       ),
     );
     if (picked != null) {
       final dateStr = picked.toIso8601String().substring(0, 10);
-      if (isFrom) {
-        dash.fetchReports(from: dateStr);
-      } else {
-        dash.fetchReports(to: dateStr);
-      }
+      if (isFrom) dash.fetchReports(from: dateStr);
+      else dash.fetchReports(to: dateStr);
     }
   }
 
@@ -52,178 +50,268 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center, // Centering requested
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Date Pickers and Presets
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildDateButton('From: ${dash.fromDate}', () => _pickDate(true)),
-              const SizedBox(width: 8),
-              _buildDateButton('To: ${dash.toDate}', () => _pickDate(false)),
-              const SizedBox(width: 16),
-              _buildPresetButtons(dash),
-              if (dash.isLoading) ...[
-                const SizedBox(width: 16),
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-              ],
-            ],
-          ),
+          // ── Date Range Controls ─────────────────────────────────────────
+          _DateRangeBar(dash: dash, onPickDate: _pickDate),
           const SizedBox(height: 24),
 
-          // Primary metrics
-          LayoutBuilder(builder: (ctx, constraints) {
-            final crossCount = constraints.maxWidth > 800 ? 4 : 2;
-            return GridView.count(
-              crossAxisCount: crossCount,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.4,
-              children: [
-                _kpiCard('Total Volume', AppUtils.formatKSh(dash.totalVolume),
-                    Icons.trending_up, const Color(0xFF10B981)),
-                _kpiCard('Total Earned', AppUtils.formatKSh(dash.totalEarned),
-                    Icons.attach_money, const Color(0xFF3B82F6)),
-                _kpiCard('Total Deals', '${dash.totalDeals}',
-                    Icons.receipt_long, const Color(0xFF8B5CF6)),
-                _kpiCard('Disputes', '${dash.disputedDeals}',
-                    Icons.warning_amber_rounded, const Color(0xFFEF4444)),
-              ],
-            );
-          }),
-          const SizedBox(height: 24),
-
-          // Detailed Fee Breakdown
-          AppUtils.buildCard(
-            child: Column(children: [
-              const Text('Revenue Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _feeItem('Transaction Fees', dash.transactionFees, const Color(0xFF10B981)),
-                  _feeItem('Release Fees', dash.releaseFees, const Color(0xFF3B82F6)),
-                  _feeItem('Holding Fees', dash.holdingFees, const Color(0xFFF59E0B)),
-                ],
-              ),
-            ]),
-          ),
-          const SizedBox(height: 24),
-
-          // Status grid
+          // ── Top KPI Cards ───────────────────────────────────────────────
           LayoutBuilder(builder: (ctx, c) {
-            final cols = c.maxWidth > 800 ? 4 : 2;
+            final cols = c.maxWidth > 900 ? 4 : (c.maxWidth > 600 ? 2 : 1);
             return GridView.count(
               crossAxisCount: cols,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.8,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 1.6,
               children: [
-                _statusCard('Pending', dash.pendingDeals, const Color(0xFFF59E0B)),
-                _statusCard('Completed', dash.completedDeals, const Color(0xFF10B981)),
-                _statusCard('Disputed', dash.disputedDeals, const Color(0xFFEF4444)),
-                _statusCard('Active', dash.activeDeals, const Color(0xFF3B82F6)),
+                _KpiCard(
+                  title: 'Total Volume',
+                  value: AppUtils.formatKSh(dash.totalVolume),
+                  icon: Icons.show_chart,
+                  color: const Color(0xFF10B981),
+                  subtitle: 'All deal values combined',
+                ),
+                _KpiCard(
+                  title: 'Total Earned',
+                  value: AppUtils.formatKSh(dash.totalEarned),
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: const Color(0xFF3B82F6),
+                  subtitle: 'Collected platform fees',
+                ),
+                _KpiCard(
+                  title: 'Total Deals',
+                  value: '${dash.totalDeals}',
+                  icon: Icons.receipt_long_outlined,
+                  color: const Color(0xFF8B5CF6),
+                  subtitle: 'Across all statuses',
+                ),
+                _KpiCard(
+                  title: 'Disputes',
+                  value: '${dash.disputedDeals}',
+                  icon: Icons.gavel_outlined,
+                  color: const Color(0xFFEF4444),
+                  subtitle: 'Open dispute cases',
+                ),
               ],
             );
           }),
+          const SizedBox(height: 24),
 
-          if (dash.statusDistribution.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            AppUtils.buildCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('Deal Status Distribution',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: dash.statusDistribution.entries.map((e) {
-                      final color = AppUtils.getStatusColor(e.key);
-                      if (e.value == 0 && e.key != 'active') return const SizedBox.shrink();
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: color.withOpacity(0.3)),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Container(
-                            width: 8, height: 8,
-                            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${e.key.replaceAll('_', ' ')}: ${e.value}',
-                            style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
-                          ),
-                        ]),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
+          // ── Volume Breakdown ────────────────────────────────────────────
+          AppUtils.buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionTitle(icon: Icons.bar_chart, title: 'Volume Breakdown'),
+                const SizedBox(height: 16),
+                LayoutBuilder(builder: (ctx, c) {
+                  final wrap = c.maxWidth < 600;
+                  final items = [
+                    _VolumeItem('Total Volume', dash.totalVolume, const Color(0xFF10B981)),
+                    _VolumeItem('Paid Volume', (_data(dash)['paidVolume'] ?? 0).toDouble(), const Color(0xFF3B82F6)),
+                    _VolumeItem('Pending Volume', (_data(dash)['pendingVolume'] ?? 0).toDouble(), const Color(0xFFF59E0B)),
+                  ];
+                  if (wrap) {
+                    return Column(children: items.expand((i) => [i, const SizedBox(height: 12)]).toList()..removeLast());
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: items,
+                  );
+                }),
+              ],
             ),
-          ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Fee Revenue Breakdown ───────────────────────────────────────
+          AppUtils.buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionTitle(icon: Icons.attach_money, title: 'Fee Revenue Breakdown'),
+                const SizedBox(height: 16),
+                Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(2),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(1.5),
+                    3: FlexColumnWidth(1.5),
+                  },
+                  children: [
+                    _tableHeader(['Fee Type', 'Total', 'Paid', 'Pending']),
+                    _feeRow(dash, 'Transaction Fees', 'transactionFees', 'paidTransactionFees', 'pendingTransactionFees', const Color(0xFF10B981)),
+                    _feeRow(dash, 'Release Fees', 'releaseFees', 'paidReleaseFees', 'pendingReleaseFees', const Color(0xFF3B82F6)),
+                    _feeRow(dash, 'Holding Fees', 'holdingFees', 'paidHoldingFees', 'expectedHoldingFees', const Color(0xFFF59E0B)),
+                  ],
+                ),
+                const Divider(height: 24, color: Color(0xFF1E3A5F)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _earningsChip('Currently Earned', (_data(dash)['currentlyEarned'] ?? 0).toDouble(), const Color(0xFF10B981)),
+                    _earningsChip('Expected Earnings', (_data(dash)['expectedEarnings'] ?? 0).toDouble(), const Color(0xFFF59E0B)),
+                    _earningsChip('Total Earned', (_data(dash)['totalEarned'] ?? 0).toDouble(), const Color(0xFF3B82F6)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Deal Status Grid ────────────────────────────────────────────
+          AppUtils.buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SectionTitle(icon: Icons.donut_large_outlined, title: 'Deal Status Distribution'),
+                const SizedBox(height: 16),
+                LayoutBuilder(builder: (ctx, c) {
+                  final cols = c.maxWidth > 900 ? 6 : (c.maxWidth > 600 ? 3 : 2);
+                  return GridView.count(
+                    crossAxisCount: cols,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.5,
+                    children: [
+                      _StatusCountCard('Active', dash.activeDeals, const Color(0xFF3B82F6)),
+                      _StatusCountCard('Pending', dash.pendingDeals, const Color(0xFFF59E0B)),
+                      _StatusCountCard('Completed', dash.completedDeals, const Color(0xFF10B981)),
+                      _StatusCountCard('Refunded', (_data(dash)['refundedCount'] ?? 0), const Color(0xFF8B5CF6)),
+                      _StatusCountCard('Cancelled', (_data(dash)['cancelledCount'] ?? 0), const Color(0xFF64748B)),
+                      _StatusCountCard('Disputes', dash.disputedDeals, const Color(0xFFEF4444)),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDateButton(String label, VoidCallback onTap) {
+  Map<String, dynamic> _data(DashboardProvider dash) => dash.stats?['data'] ?? dash.stats ?? {};
+
+  TableRow _tableHeader(List<String> labels) {
+    return TableRow(
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1E3A5F)))),
+      children: labels.map((l) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(l, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B), letterSpacing: 0.5)),
+      )).toList(),
+    );
+  }
+
+  TableRow _feeRow(DashboardProvider dash, String label, String totalKey, String paidKey, String pendingKey, Color color) {
+    final data = _data(dash);
+    final total = (data[totalKey] ?? 0).toDouble();
+    final paid = (data[paidKey] ?? 0).toDouble();
+    final pending = (data[pendingKey] ?? 0).toDouble();
+    return TableRow(children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(children: [
+          Container(width: 8, height: 8, margin: const EdgeInsets.only(right: 8), decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        ]),
+      ),
+      Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(AppUtils.formatKSh(total), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13))),
+      Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(AppUtils.formatKSh(paid), style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)))),
+      Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text(AppUtils.formatKSh(pending), style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)))),
+    ]);
+  }
+
+  Widget _earningsChip(String label, double value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        const SizedBox(height: 4),
+        Text(AppUtils.formatKSh(value), style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
+      ],
+    );
+  }
+}
+
+// ── Reusable sub-widgets ──────────────────────────────────────────────────────
+
+class _DateRangeBar extends StatelessWidget {
+  final DashboardProvider dash;
+  final Function(bool) onPickDate;
+  const _DateRangeBar({required this.dash, required this.onPickDate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _dateBtn('From: ${dash.fromDate}', () => onPickDate(true)),
+        _dateBtn('To: ${dash.toDate}', () => onPickDate(false)),
+        _presetChip('Last 24h', () {
+          final now = DateTime.now();
+          dash.fetchReports(
+            from: now.subtract(const Duration(hours: 24)).toIso8601String().substring(0, 10),
+            to: now.toIso8601String().substring(0, 10),
+          );
+        }),
+        _presetChip('Last 7d', () {
+          final now = DateTime.now();
+          dash.fetchReports(
+            from: now.subtract(const Duration(days: 7)).toIso8601String().substring(0, 10),
+            to: now.toIso8601String().substring(0, 10),
+          );
+        }),
+        _presetChip('Last 30d', () {
+          final now = DateTime.now();
+          dash.fetchReports(
+            from: now.subtract(const Duration(days: 30)).toIso8601String().substring(0, 10),
+            to: now.toIso8601String().substring(0, 10),
+          );
+        }),
+        _presetChip('This Year', () {
+          final now = DateTime.now();
+          dash.fetchReports(
+            from: '${now.year}-01-01',
+            to: '${now.year}-12-31',
+          );
+        }),
+        if (dash.isLoading)
+          const SizedBox(
+            width: 18, height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+          ),
+      ],
+    );
+  }
+
+  Widget _dateBtn(String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFF334155)),
         ),
-        child: Row(children: [
-          const Icon(Icons.calendar_today, size: 14, color: Color(0xFF10B981)),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 13)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.calendar_today, size: 13, color: Color(0xFF10B981)),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12)),
         ]),
       ),
     );
-  }
-
-  Widget _buildPresetButtons(DashboardProvider dash) {
-    return Row(children: [
-      _presetChip('Last 24h', () {
-        final now = DateTime.now();
-        dash.fetchReports(
-          from: now.subtract(const Duration(hours: 24)).toIso8601String().substring(0, 10),
-          to: now.toIso8601String().substring(0, 10),
-        );
-      }),
-      const SizedBox(width: 8),
-      _presetChip('Last 7d', () {
-        final now = DateTime.now();
-        dash.fetchReports(
-          from: now.subtract(const Duration(days: 7)).toIso8601String().substring(0, 10),
-          to: now.toIso8601String().substring(0, 10),
-        );
-      }),
-      const SizedBox(width: 8),
-      _presetChip('Last 30d', () {
-        final now = DateTime.now();
-        dash.fetchReports(
-          from: now.subtract(const Duration(days: 30)).toIso8601String().substring(0, 10),
-          to: now.toIso8601String().substring(0, 10),
-        );
-      }),
-    ]);
   }
 
   Widget _presetChip(String label, VoidCallback onTap) {
@@ -235,66 +323,111 @@ class _DashboardPageState extends State<DashboardPage> {
       visualDensity: VisualDensity.compact,
     );
   }
+}
 
-  Widget _kpiCard(String title, String value, IconData icon, Color color) {
-    return AppUtils.buildCard(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(color: Color(0xFF64748B), fontSize: 14)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
+class _SectionTitle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  const _SectionTitle({required this.icon, required this.title});
 
-  Widget _feeItem(String label, double amount, Color color) {
-    return Column(children: [
-      Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-      const SizedBox(height: 4),
-      Text(AppUtils.formatKSh(amount), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(icon, size: 16, color: const Color(0xFF10B981)),
+      const SizedBox(width: 8),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
     ]);
   }
+}
 
-  Widget _statusCard(String label, int count, Color color) {
+class _KpiCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String subtitle;
+  const _KpiCard({required this.title, required this.value, required this.icon, required this.color, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
     return AppUtils.buildCard(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-          const SizedBox(height: 4),
-          Text('$count', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const Spacer(),
+          ]),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 2),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(title, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+          ),
+          const SizedBox(height: 2),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(subtitle, style: const TextStyle(color: Color(0xFF475569), fontSize: 10)),
+          ),
         ],
       ),
     );
   }
 }
 
-class _DateRangeChip extends StatelessWidget {
+class _VolumeItem extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
-  const _DateRangeChip({required this.label, required this.onTap});
+  final double value;
+  final Color color;
+  const _VolumeItem(this.label, this.value, this.color);
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFF141E33),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFF1E3A5F)),
-        ),
-        child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+        ]),
+        const SizedBox(height: 4),
+        Text(AppUtils.formatKSh(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+      ],
+    );
+  }
+}
+
+class _StatusCountCard extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  const _StatusCountCard(this.label, this.count, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('$count', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+        ],
       ),
     );
   }

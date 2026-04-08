@@ -24,6 +24,8 @@ class AdminManagementProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _admins = await _adminService.listAdmins();
+      // Update permissions list based on newly fetched admins
+      await fetchPermissions();
     } catch (e) {
       _error = 'Failed to load admins: $e';
     }
@@ -32,10 +34,30 @@ class AdminManagementProvider extends ChangeNotifier {
   }
 
   Future<void> fetchPermissions() async {
-    try {
-      _availablePermissions = await _adminService.getAllPermissions();
-      notifyListeners();
-    } catch (_) {}
+    // Collect all unique permissions currently assigned to admins
+    final Set<String> allPerms = {};
+    for (var admin in _admins) {
+      allPerms.addAll(admin.permissions);
+    }
+
+    // Add a comprehensive fallback of known system permissions
+    allPerms.addAll([
+      'view_dashboard',
+      'manage_transactions',
+      'manage_fees',
+      'manage_blacklist',
+      'resolve_disputes',
+      'impersonate_user',
+      'manage_mpesa',
+      'manual_payouts',
+      'audit_logs',
+      'manage_admins',
+      'pull_transactions',
+      'view_mpesa_balance',
+    ]);
+
+    _availablePermissions = allPerms.toList()..sort();
+    notifyListeners();
   }
 
   Future<bool> createAdmin({
@@ -44,7 +66,6 @@ class AdminManagementProvider extends ChangeNotifier {
     required String phone,
     required String password,
     String role = 'admin',
-    List<String> permissions = const [],
   }) async {
     try {
       final success = await _adminService.createAdmin({
@@ -53,7 +74,6 @@ class AdminManagementProvider extends ChangeNotifier {
         'phone': phone,
         'password': password,
         'role': role,
-        'permissions': permissions,
       });
       if (success) await fetchAdmins();
       return success;
@@ -62,7 +82,7 @@ class AdminManagementProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> updatePermissions(String adminId, List<String> permissions) async {
+  Future<bool> updateAdminPermissions(String adminId, List<String> permissions) async {
     try {
       final success = await _adminService.updateAdminPermissions(adminId, permissions);
       if (success) await fetchAdmins();

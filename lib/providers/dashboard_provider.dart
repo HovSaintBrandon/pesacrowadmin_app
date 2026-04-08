@@ -21,18 +21,35 @@ class DashboardProvider extends ChangeNotifier {
   // Convenience getters mapping to the /admin/reports endpoint
   Map<String, dynamic> get _data => _stats?['data'] ?? _stats ?? {};
 
+  // Volume
   double get totalVolume => (_data['totalVolume'] ?? 0).toDouble();
+  double get paidVolume => (_data['paidVolume'] ?? 0).toDouble();
+  double get pendingVolume => (_data['pendingVolume'] ?? 0).toDouble();
+
+  // Earned
   double get totalEarned => (_data['totalEarned'] ?? 0).toDouble();
+  double get currentlyEarned => (_data['currentlyEarned'] ?? 0).toDouble();
+  double get expectedEarnings => (_data['expectedEarnings'] ?? 0).toDouble();
+
+  // Fees
   double get transactionFees => (_data['transactionFees'] ?? 0).toDouble();
+  double get paidTransactionFees => (_data['paidTransactionFees'] ?? 0).toDouble();
+  double get pendingTransactionFees => (_data['pendingTransactionFees'] ?? 0).toDouble();
   double get releaseFees => (_data['releaseFees'] ?? 0).toDouble();
+  double get paidReleaseFees => (_data['paidReleaseFees'] ?? 0).toDouble();
+  double get pendingReleaseFees => (_data['pendingReleaseFees'] ?? 0).toDouble();
   double get holdingFees => (_data['holdingFees'] ?? 0).toDouble();
-  
+  double get paidHoldingFees => (_data['paidHoldingFees'] ?? 0).toDouble();
+  double get expectedHoldingFees => (_data['expectedHoldingFees'] ?? 0).toDouble();
+
+  // Deal counts
   int get totalDeals => (_data['totalCount'] ?? 0).toInt();
   int get activeDeals => (_data['activeCount'] ?? 0).toInt();
   int get pendingDeals => (_data['pendingCount'] ?? 0).toInt();
   int get completedDeals => (_data['completedCount'] ?? 0).toInt();
   int get disputedDeals => (_data['disputeCount'] ?? 0).toInt();
   int get refundedDeals => (_data['refundedCount'] ?? 0).toInt();
+  int get cancelledDeals => (_data['cancelledCount'] ?? 0).toInt();
 
   Map<String, dynamic> get statusDistribution {
     // If the endpoint doesn't provide a map, we can reconstruct it from individual counts

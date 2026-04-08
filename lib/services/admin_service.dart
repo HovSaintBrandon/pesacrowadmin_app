@@ -191,32 +191,6 @@ class AdminService {
     return [];
   }
 
-  Future<List<String>> getAllPermissions() async {
-    try {
-      final res = await _api.get('/admin/permissions');
-      final data = jsonDecode(res.body);
-      
-      List listData;
-      if (data is List) {
-        listData = data;
-      } else if (data is Map && data['data'] is List) {
-        listData = data['data'];
-      } else {
-        return [];
-      }
-
-      return listData.map((p) {
-        if (p is Map) {
-          return (p['key'] ?? p['name'] ?? p['id'] ?? '').toString();
-        }
-        return p.toString();
-      }).where((s) => s.isNotEmpty).toList().cast<String>();
-    } catch (e) {
-      print('❌ AdminService: Error fetching permissions: $e');
-      return [];
-    }
-  }
-
   Future<bool> updateAdminPermissions(String adminId, List<String> permissions) async {
     final res = await _api.patch('/admin/$adminId/permissions', body: {'permissions': permissions});
     return jsonDecode(res.body)['success'] ?? false;

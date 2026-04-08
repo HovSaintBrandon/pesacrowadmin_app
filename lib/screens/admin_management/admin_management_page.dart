@@ -175,7 +175,6 @@ class _AdminManagementPageState extends State<AdminManagementPage>
                     phone: phoneCtrl.text.trim(),
                     password: passCtrl.text,
                     role: role,
-                    permissions: selectedPerms,
                   );
                   AppUtils.showSnackBar(context,
                       ok ? 'Admin account created' : 'Failed to create admin',
@@ -330,13 +329,8 @@ class _AdminRow extends StatelessWidget {
     final me = auth.currentUser;
     if (me == null) return const SizedBox();
 
-    // Guard 1: Self-deletion
+    // Guard: Self-deletion only — you cannot delete your own account
     if (admin.id == me.id) return const SizedBox(width: 40);
-
-    // Guard 2: Hierarchy
-    final isTargetSuper = admin.role == 'super_admin';
-    final amISuper = me.role == 'super_admin';
-    if (isTargetSuper && !amISuper) return const SizedBox(width: 40);
 
     return IconButton(
       icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
@@ -410,7 +404,7 @@ class _AdminRow extends StatelessWidget {
               onPressed: () async {
                 Navigator.pop(ctx);
                 final ok = await context.read<AdminManagementProvider>()
-                    .updatePermissions(admin.id, selected);
+                    .updateAdminPermissions(admin.id, selected);
                 AppUtils.showSnackBar(context,
                     ok ? 'Permissions updated' : 'Failed to update permissions',
                     isError: !ok);
