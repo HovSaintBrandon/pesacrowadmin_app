@@ -23,7 +23,14 @@ class AdminService {
     return data;
   }
 
-  Future<void> logout() async => await _api.clearToken();
+  Future<void> logout() async {
+    try {
+      await _api.post('/admin/logout');
+    } catch (e) {
+      print('❌ AdminService: Error during logout: $e');
+    }
+    await _api.clearToken();
+  }
 
   Future<Admin?> getProfile() async {
     try {

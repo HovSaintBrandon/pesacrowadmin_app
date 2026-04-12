@@ -28,8 +28,7 @@ class _OrgBalancesPageState extends State<OrgBalancesPage> {
 
   Future<void> _refreshData() async {
     final provider = context.read<MpesaProvider>();
-    await provider.fetchLatestBalance();
-    await provider.fetchBalanceHistory();
+    await provider.queryBalance('Manual refresh from Org Balances');
     if (!mounted) return;
     setState(() {
       _lastUpdated = DateTime.now();
