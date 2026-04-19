@@ -10,6 +10,11 @@ import '../mpesa/mpesa_tools_page.dart';
 import '../mpesa/org_balances_page.dart';
 import '../disbursement/disbursement_page.dart';
 import '../admin_management/admin_management_page.dart';
+import '../audit_logs/audit_logs_page.dart';
+import '../users/users_page.dart';
+import '../financials/financials_page.dart';
+import '../announcements/announcements_page.dart';
+import '../config/system_config_page.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -21,31 +26,68 @@ class _AdminShellState extends State<AdminShell> {
   int _selectedIndex = 0;
   bool _sidebarExpanded = true;
 
-  static const _navItems = [
-    _NavItem(Icons.dashboard_outlined, 'Dashboard'),
-    _NavItem(Icons.account_balance_outlined, 'Org Balances'),
-    _NavItem(Icons.receipt_long_outlined, 'Transactions'),
-    _NavItem(Icons.gavel_outlined, 'Disputes'),
-    _NavItem(Icons.tune_outlined, 'Fee Management'),
-    _NavItem(Icons.block_outlined, 'Blacklist'),
-    _NavItem(Icons.phone_android_outlined, 'M-Pesa Tools'),
-    _NavItem(Icons.send_outlined, 'Disbursement'),
-    _NavItem(Icons.admin_panel_settings_outlined, 'Admin Management'),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      const DashboardPage(),
-      const OrgBalancesPage(),
-      const TransactionsPage(),
-      const DisputesPage(),
-      const FeesPage(),
-      const BlacklistPage(),
-      const MpesaToolsPage(),
-      const DisbursementPage(),
-      const AdminManagementPage(),
+    final authProvider = context.watch<AuthProvider>();
+    final currentUser = authProvider.currentUser;
+    final permissions = currentUser?.permissions ?? [];
+
+    final allTabs = [
+      {'item': const _NavItem(Icons.dashboard_outlined, 'Dashboard'), 'page': const DashboardPage(), 'perm': 'view_dashboard'},
+      {'item': const _NavItem(Icons.account_balance_outlined, 'Org Balances'), 'page': const OrgBalancesPage(), 'perm': 'view_mpesa_balance'},
+      {'item': const _NavItem(Icons.insights_outlined, 'Finance'), 'page': const FinancialsPage(), 'perm': 'view_revenue'},
+      {'item': const _NavItem(Icons.group_outlined, 'Users'), 'page': const UsersPage(), 'perm': 'freeze_account'},
+      {'item': const _NavItem(Icons.receipt_long_outlined, 'Transactions'), 'page': const TransactionsPage(), 'perm': 'manage_transactions'},
+      {'item': const _NavItem(Icons.gavel_outlined, 'Disputes'), 'page': const DisputesPage(), 'perm': 'resolve_disputes'},
+      {'item': const _NavItem(Icons.campaign_outlined, 'Announcements'), 'page': const AnnouncementsPage(), 'perm': 'manage_announcements'},
+      {'item': const _NavItem(Icons.tune_outlined, 'Fee Management'), 'page': const FeesPage(), 'perm': 'manage_fees'},
+      {'item': const _NavItem(Icons.block_outlined, 'Blacklist'), 'page': const BlacklistPage(), 'perm': 'manage_blacklist'},
+      {'item': const _NavItem(Icons.phone_android_outlined, 'M-Pesa Tools'), 'page': const MpesaToolsPage(), 'perm': 'manage_mpesa'},
+      {'item': const _NavItem(Icons.send_outlined, 'Disbursement'), 'page': const DisbursementPage(), 'perm': 'manual_payouts'},
+      {'item': const _NavItem(Icons.admin_panel_settings_outlined, 'Admin Management'), 'page': const AdminManagementPage(), 'perm': 'manage_admins'},
+      {'item': const _NavItem(Icons.settings_outlined, 'System Settings'), 'page': const SystemConfigPage(), 'perm': 'manage_webhooks'},
+      {'item': const _NavItem(Icons.history_outlined, 'Audit Logs'), 'page': const AuditLogsPage(), 'perm': 'audit_logs'},
     ];
+
+    // Some items might share permissions or have multiple valid ones
+    final availableTabs = allTabs.where((t) {
+      if (permissions.contains('*')) return true;
+      if (t['perm'] == 'manage_webhooks') {
+         return permissions.contains('manage_webhooks') || permissions.contains('configure_otp') || permissions.contains('view_system_health');
+      }
+      return permissions.contains(t['perm']);
+    }).toList();
+
+    if (availableTabs.isEmpty) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('You have no permissions assigned. Please contact the administrator.',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 16)),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => context.read<AuthProvider>().logout(),
+                child: const Text('Logout'),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_selectedIndex >= availableTabs.length) {
+      // Defer state update to avoid 'setState() or markNeedsBuild() called during build'
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedIndex = 0);
+      });
+    }
+
+    final activeIndex = _selectedIndex >= availableTabs.length ? 0 : _selectedIndex;
+    final pages = availableTabs.map((t) => t['page'] as Widget).toList();
+    final navItems = availableTabs.map((t) => t['item'] as _NavItem).toList();
+
 
     return Scaffold(
       body: Row(children: [
@@ -81,10 +123,10 @@ class _AdminShellState extends State<AdminShell> {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _navItems.length,
+                itemCount: navItems.length,
                 itemBuilder: (ctx, i) {
-                  final item = _navItems[i];
-                  final selected = _selectedIndex == i;
+                  final item = navItems[i];
+                  final selected = activeIndex == i;
                   return Tooltip(
                     message: _sidebarExpanded ? '' : item.label,
                     child: InkWell(
@@ -167,17 +209,39 @@ class _AdminShellState extends State<AdminShell> {
                       setState(() => _sidebarExpanded = !_sidebarExpanded),
                 ),
                 const SizedBox(width: 8),
-                Text(_navItems[_selectedIndex].label,
+                Text(navItems[activeIndex].label,
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                if (currentUser != null) ...[
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(currentUser.name, 
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      Text(currentUser.role.replaceAll('_', ' ').toUpperCase(), 
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF10B981))),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: const Color(0xFF1E3A5F),
+                    child: Text(
+                      currentUser.name.isNotEmpty ? currentUser.name[0].toUpperCase() : '?',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ],
               ]),
             ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Builder(builder: (ctx) {
-                  print('🧭 AdminShell: Switching to ${_navItems[_selectedIndex].label}');
-                  return pages[_selectedIndex];
+                  print('🧭 AdminShell: Switching to \${navItems[activeIndex].label}');
+                  return pages[activeIndex];
                 }),
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils.dart';
 import '../../providers/deal_provider.dart';
+import '../../providers/mpesa_provider.dart';
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
@@ -95,6 +96,27 @@ class _TransactionsPageState extends State<TransactionsPage> {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 textStyle: const TextStyle(fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final url = await context.read<DealProvider>().exportTransactions(
+                  fromDate: _fromDate.isEmpty ? null : _fromDate,
+                  toDate: _toDate.isEmpty ? null : _toDate,
+                  status: _statusFilter == 'all' ? null : _statusFilter,
+                );
+                if (url != null) {
+                   AppUtils.showSnackBar(context, 'Export generated');
+                } else {
+                   AppUtils.showSnackBar(context, context.read<DealProvider>().error ?? 'Export failed', isError: true);
+                }
+              },
+              icon: const Icon(Icons.download, size: 14, color: Color(0xFF10B981)),
+              label: const Text('Export CSV', style: TextStyle(color: Color(0xFF10B981))),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF10B981)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ]),
@@ -356,53 +378,72 @@ class _DetailPanel extends StatelessWidget {
           ]),
         )),
         const SizedBox(height: 16),
-        // Action buttons
-        if (['failed', 'approved'].contains(d.status))
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final ok = await dealProvider.retryPayout(d.transactionId);
-                AppUtils.showSnackBar(context,
-                    ok ? 'Payout retry initiated' : 'Retry failed', isError: !ok);
-              },
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Retry Payout'),
-            ),
-          ),
-        if (['held', 'delivered'].contains(d.status)) ...[
+        if (d.mpesaReceipt != null) ...[
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _showReversalDialog(context, d.transactionId),
-              icon: const Icon(Icons.undo, size: 16, color: Color(0xFFEF4444)),
-              label: const Text('Trigger Reversal',
-                  style: TextStyle(color: Color(0xFFEF4444))),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFEF4444)),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+              onPressed: () async {
+                final ok = await context.read<MpesaProvider>().queryTransactionStatus(d.mpesaReceipt!);
+                if (ok) {
+                  AppUtils.showSnackBar(context, 'Receipt verified with Safaricom');
+                } else {
+                  AppUtils.showSnackBar(context, context.read<MpesaProvider>().error ?? 'Sync failed', isError: true);
+                }
+              },
+              icon: const Icon(Icons.verified_user_outlined, size: 16),
+              label: const Text('Verify Receipt'),
             ),
           ),
         ],
-        if (['pending_payment', 'held'].contains(d.status)) ...[
+        if (d.status == 'held') ...[
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _showCancelDialog(context, d.transactionId),
-              icon: const Icon(Icons.cancel, size: 16, color: Color(0xFFFACC15)),
-              label: const Text('Cancel Deal',
-                  style: TextStyle(color: Color(0xFFFACC15))),
+              onPressed: () => _showRefundDialog(context, d.transactionId),
+              icon: const Icon(Icons.undo, size: 16, color: Color(0xFFF59E0B)),
+              label: const Text('Initiate Refund', style: TextStyle(color: Color(0xFFF59E0B))),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFFACC15)),
+                side: const BorderSide(color: Color(0xFFF59E0B)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
           ),
         ],
       ]),
+    );
+  }
+
+  void _showRefundDialog(BuildContext context, String txId) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF141E33),
+        title: const Text('Initiate Direct Refund'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: 'Reason for refund...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+            onPressed: () async {
+              final ok = await dealProvider.initiateRefund(txId, ctrl.text);
+              Navigator.pop(ctx);
+              if (ok) {
+                AppUtils.showSnackBar(context, 'Refund processed');
+                dealProvider.fetchDealDetail(txId);
+              } else {
+                AppUtils.showSnackBar(context, dealProvider.error ?? 'Refund failed', isError: true);
+              }
+            },
+            child: const Text('Confirm Refund'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -441,8 +482,11 @@ class _DetailPanel extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await dealProvider.triggerReversal(txId, ctrl.text);
-              AppUtils.showSnackBar(context,
-                  ok ? 'Reversal initiated' : 'Reversal failed', isError: !ok);
+              if (ok) {
+                AppUtils.showSnackBar(context, 'Reversal initiated');
+              } else {
+                AppUtils.showSnackBar(context, dealProvider.error ?? 'Reversal failed', isError: true);
+              }
             },
             child: const Text('Confirm Reversal'),
           ),
@@ -466,10 +510,11 @@ class _DetailPanel extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await dealProvider.cancelDeal(txId);
-              AppUtils.showSnackBar(context,
-                  ok ? 'Deal cancelled successfully' : 'Failed to cancel deal', isError: !ok);
               if (ok) {
+                AppUtils.showSnackBar(context, 'Deal cancelled successfully');
                 dealProvider.selectDeal(null);
+              } else {
+                AppUtils.showSnackBar(context, dealProvider.error ?? 'Failed to cancel deal', isError: true);
               }
             },
             child: const Text('Yes, Cancel Deal'),

@@ -39,9 +39,8 @@ class DisbursementProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      _error = 'Failed to initiate disbursement';
     } catch (e) {
-      _error = 'Error: $e';
+      _error = e.toString().replaceFirst('Exception: ', '');
     }
 
     _isLoading = false;
@@ -59,12 +58,11 @@ class DisbursementProvider extends ChangeNotifier {
     try {
       final success = await _adminService.confirmManualDisbursement(_pendingDisbursementId!, otp);
       if (success) _pendingDisbursementId = null;
-      else _error = 'Invalid OTP or confirmation failed';
       _isLoading = false;
       notifyListeners();
       return success;
     } catch (e) {
-      _error = 'Error: $e';
+      _error = e.toString().replaceFirst('Exception: ', '');
       _isLoading = false;
       notifyListeners();
       return false;

@@ -9,6 +9,10 @@ import 'providers/dashboard_provider.dart';
 import 'providers/mpesa_provider.dart';
 import 'providers/disbursement_provider.dart';
 import 'providers/admin_management_provider.dart';
+import 'providers/user_provider.dart';
+import 'providers/financials_provider.dart';
+import 'providers/system_provider.dart';
+import 'providers/announcement_provider.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/shell/admin_shell.dart';
 import 'services/api_service.dart';
@@ -28,6 +32,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => MpesaProvider()),
         ChangeNotifierProvider(create: (_) => DisbursementProvider()),
         ChangeNotifierProvider(create: (_) => AdminManagementProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => FinancialsProvider()),
+        ChangeNotifierProvider(create: (_) => SystemProvider()),
+        ChangeNotifierProvider(create: (_) => AnnouncementProvider()),
       ],
       child: const PesaCrowAdminApp(),
     ),

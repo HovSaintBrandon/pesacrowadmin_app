@@ -100,18 +100,24 @@ class _DisputesPageState extends State<DisputesPage> {
                       ElevatedButton.icon(
                         onPressed: () => _showResolveDialog(context, d, 'release'),
                         icon: const Icon(Icons.check, size: 16),
-                        label: const Text('Release to Seller'),
+                        label: const Text('Release'),
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
                         onPressed: () => _showResolveDialog(context, d, 'refund'),
                         icon: const Icon(Icons.undo, size: 16, color: Color(0xFFF59E0B)),
-                        label: const Text('Refund Buyer',
+                        label: const Text('Refund',
                             style: TextStyle(color: Color(0xFFF59E0B))),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFFF59E0B)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () => _showDisputeDetail(context, d),
+                        icon: const Icon(Icons.visibility),
+                        label: const Text('View Evidence & Notes'),
                       ),
                     ]),
                   ]),
@@ -123,7 +129,124 @@ class _DisputesPageState extends State<DisputesPage> {
     ]);
   }
 
+  void _showDisputeDetail(BuildContext context, Deal deal) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => FutureBuilder<Map<String, dynamic>>(
+        future: context.read<DealProvider>().fetchDisputeDetail(deal.transactionId),
+        builder: (ctx, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = snapshot.data!['data'] ?? {};
+          final notes = data['notes'] as List? ?? [];
+          final proofs = deal.proofs;
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF0F172A),
+            title: Text('Dispute: ${deal.transactionId}'),
+            content: SizedBox(
+              width: 600,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Administrative Evidence', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 12),
+                    if (proofs.isEmpty)
+                      const Text('No uploaded evidence found.', style: TextStyle(color: Color(0xFF64748B), fontStyle: FontStyle.italic))
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: proofs.map((p) => InkWell(
+                          onTap: () { /* Image view logic */ },
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E3A5F),
+                              borderRadius: BorderRadius.circular(8),
+                              image: p['url'] != null ? DecorationImage(image: NetworkImage(p['url']!), fit: BoxFit.cover) : null,
+                            ),
+                            child: p['url'] == null ? const Icon(Icons.insert_drive_file, color: Colors.white54) : null,
+                          ),
+                        )).toList(),
+                      ),
+                    const Divider(height: 32, color: Color(0xFF1E3A5F)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Internal Admin Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        IconButton(
+                          icon: const Icon(Icons.add_comment, size: 20, color: Color(0xFF10B981)),
+                          onPressed: () => _showAddNoteDialog(context, deal),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (notes.isEmpty)
+                      const Text('No internal notes recorded.', style: TextStyle(color: Color(0xFF64748B)))
+                    else
+                      ...notes.map((n) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(n['adminName'] ?? 'Unknown Admin', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF10B981))),
+                            Text(n['note'] ?? '', style: const TextStyle(fontSize: 14)),
+                            Text(AppUtils.formatDateTime(DateTime.parse(n['createdAt'])), style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                          ],
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddNoteDialog(BuildContext context, Deal deal) {
+    final noteCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF141E33),
+        title: const Text('Add Internal Note'),
+        content: TextField(
+          controller: noteCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(hintText: 'Enter your observation or findings...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final ok = await context.read<DealProvider>().addDisputeNote(deal.transactionId, noteCtrl.text);
+              Navigator.pop(ctx);
+              if (ok) {
+                AppUtils.showSnackBar(context, 'Note added');
+                Navigator.pop(context); // Close detail dialog to refresh
+                _showDisputeDetail(context, deal);
+              } else {
+                AppUtils.showSnackBar(context, context.read<DealProvider>().error ?? 'Failed to add note', isError: true);
+              }
+            },
+            child: const Text('Save Note'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showResolveDialog(BuildContext context, Deal deal, String decision) {
+    // ... existing _showResolveDialog code remains the same
     final noteCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -156,11 +279,11 @@ class _DisputesPageState extends State<DisputesPage> {
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await context.read<DealProvider>().resolveDispute(deal.transactionId, decision, noteCtrl.text);
-              AppUtils.showSnackBar(context,
-                  ok ? 'Dispute resolved successfully' : 'Failed to resolve dispute',
-                  isError: !ok);
               if (ok) {
+                AppUtils.showSnackBar(context, 'Dispute resolved successfully');
                 context.read<DealProvider>().fetchDeals(status: 'disputed');
+              } else {
+                AppUtils.showSnackBar(context, context.read<DealProvider>().error ?? 'Failed to resolve dispute', isError: true);
               }
             },
             child: const Text('Confirm'),

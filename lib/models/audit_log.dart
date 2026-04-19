@@ -14,11 +14,19 @@ class AuditLog {
   });
 
   factory AuditLog.fromJson(Map<String, dynamic> json) {
+    String parsedDetails = json['description'] ?? json['details']?.toString() ?? '';
+    if (json['newValue'] != null) {
+      parsedDetails += '\nNew: ${json['newValue']}';
+    }
+    if (json['oldValue'] != null) {
+      parsedDetails += '\nOld: ${json['oldValue']}';
+    }
+
     return AuditLog(
       id: json['_id'] ?? json['id'] ?? '',
       action: json['action'] ?? '',
-      performedBy: json['performedBy'] ?? '',
-      details: json['details'],
+      performedBy: json['adminEmail'] ?? json['performedBy'] ?? json['adminId'] ?? '',
+      details: parsedDetails.trim(),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),

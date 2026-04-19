@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'notifications.dart';
 
 class AppUtils {
   static String formatKSh(double amount) =>
       'KSh ${NumberFormat('#,###').format(amount.round())}';
+
+  static String formatCurrency(double amount) =>
+      NumberFormat('#,###.##').format(amount);
+
+  static String formatDateTime(DateTime dateTime) =>
+      DateFormat('MMM d, yyyy HH:mm').format(dateTime);
 
   static String formatPhone(String phone) {
     if (phone.startsWith('254')) return '+$phone';
@@ -54,12 +61,11 @@ class AppUtils {
   }
 
   static void showSnackBar(BuildContext context, String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : const Color(0xFF10B981),
-      ),
-    );
+    if (isError) {
+      AppNotifications.showError(context, message);
+    } else {
+      AppNotifications.showSuccess(context, message);
+    }
   }
 
   static Widget buildCard({required Widget child, EdgeInsets? padding}) {

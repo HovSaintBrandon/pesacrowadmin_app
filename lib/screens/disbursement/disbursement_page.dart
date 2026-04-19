@@ -227,6 +227,12 @@ class _DisbursementPageState extends State<DisbursementPage> {
       remarks: _remarks.text.trim().isEmpty ? 'Manual disbursement' : _remarks.text.trim(),
       accountReference: _channel == 'paybill' ? _accountRef.text.trim() : null,
     );
+    
+    // Show notification if error occurred
+    final p = context.read<DisbursementProvider>();
+    if (p.error != null) {
+      AppUtils.showSnackBar(context, p.error!, isError: true);
+    }
   }
 }
 

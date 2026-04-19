@@ -374,6 +374,11 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
   }
 
   void _snack(BuildContext context, bool ok, String success, String fail) {
-    AppUtils.showSnackBar(context, ok ? success : fail, isError: !ok);
+    final mpesa = context.read<MpesaProvider>();
+    AppUtils.showSnackBar(
+      context,
+      ok ? success : (mpesa.error ?? fail),
+      isError: !ok,
+    );
   }
 }

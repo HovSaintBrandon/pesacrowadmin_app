@@ -7,11 +7,26 @@ import '../models/blacklist_item.dart';
 import '../models/fee_config.dart';
 import '../models/mpesa_balance.dart';
 import '../models/mpesa_balance_snapshot.dart';
+import '../models/user.dart';
+import '../models/financial_stats.dart';
+import '../models/system_config.dart';
 
 class AdminService {
   final ApiService _api = ApiService();
   ApiService get api => _api;
   bool get hasToken => _api.hasToken;
+
+  String _extractError(dynamic data) {
+    if (data is Map) {
+      if (data['details'] is List && (data['details'] as List).isNotEmpty) {
+        final details = data['details'] as List;
+        final parts = details.map((d) => d['message']?.toString() ?? d.toString());
+        return parts.join(', ');
+      }
+      return data['message']?.toString() ?? 'An unknown error occurred';
+    }
+    return data?.toString() ?? 'An unknown error occurred';
+  }
 
   // ─── AUTH ────────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> login(String email, String password) async {
@@ -35,15 +50,33 @@ class AdminService {
   Future<Admin?> getProfile() async {
     try {
       final res = await _api.get('/admin/profile');
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        throw Exception('UNAUTHORIZED');
+      }
       final data = jsonDecode(res.body);
       
-      // Handle both { "success": true, "data": {...} } and direct {...}
       final profileData = (data is Map && data['data'] != null) ? data['data'] : data;
       if (profileData is Map<String, dynamic>) {
+        // Fetch dynamic permissions assigned to this current session
+        try {
+          final permRes = await _api.get('/admin/my-permissions');
+          if (permRes.statusCode == 200) {
+            final permData = jsonDecode(permRes.body);
+            if (permData['data'] != null && permData['data']['permissions'] != null) {
+              profileData['permissions'] = permData['data']['permissions'];
+            }
+          }
+        } catch (e) {
+          print('⚠️ AdminService: Could not map precise permissions: \$e');
+        }
+
         return Admin.fromJson(profileData);
       }
     } catch (e) {
-      print('❌ AdminService: Error fetching profile: $e');
+      print('❌ AdminService: Error fetching profile: \$e');
+      if (e.toString().contains('UNAUTHORIZED')) {
+        rethrow;
+      }
     }
     return null;
   }
@@ -130,6 +163,30 @@ class AdminService {
     return Map<String, dynamic>.from(jsonDecode(res.body));
   }
 
+  Future<String?> exportTransactions({String? fromDate, String? toDate, String? status}) async {
+    final query = <String, String>{
+      if (fromDate != null) 'fromDate': fromDate,
+      if (toDate != null) 'toDate': toDate,
+      if (status != null) 'status': status,
+    };
+    final res = await _api.get('/admin/transactions/export', query: query);
+    
+    // Check if the response is CSV or JSON
+    if (res.headers['content-type']?.contains('csv') == true || res.body.startsWith('transactionId')) {
+      final bytes = utf8.encode(res.body);
+      final base64String = base64.encode(bytes);
+      return 'data:text/csv;base64,$base64String';
+    }
+
+    try {
+      final data = jsonDecode(res.body);
+      return data['success'] == true ? (data['data']['downloadUrl'] ?? data['data']) : null;
+    } catch (e) {
+      print('❌ AdminService: Failed to parse export response: $e');
+      return null;
+    }
+  }
+
   Future<List<AuditLog>> getAuditLogs({int page = 1, int limit = 50, String? action}) async {
     final query = <String, String>{
       'page': page.toString(),
@@ -139,19 +196,67 @@ class AdminService {
     final res = await _api.get('/admin/audit-logs', query: query);
     final data = jsonDecode(res.body);
     if (data['success'] == true) {
-      return (data['data'] as List).map((e) => AuditLog.fromJson(e)).toList();
+      final innerData = data['data'];
+      List rawList = [];
+      if (innerData is List) {
+        rawList = innerData;
+      } else if (innerData is Map) {
+        rawList = innerData['logs'] ?? [];
+      }
+      return rawList.map((e) => AuditLog.fromJson(e)).toList();
     }
     return [];
   }
 
+  Future<String?> exportAuditLogs({String? fromDate, String? toDate}) async {
+    final query = <String, String>{
+      if (fromDate != null) 'fromDate': fromDate,
+      if (toDate != null) 'toDate': toDate,
+    };
+    final res = await _api.get('/admin/audit-logs/export', query: query);
+    
+    // Check if the response is CSV or JSON
+    if (res.headers['content-type']?.contains('csv') == true || res.body.startsWith('id,') || res.body.startsWith('action,')) {
+      final bytes = utf8.encode(res.body);
+      final base64String = base64.encode(bytes);
+      return 'data:text/csv;base64,$base64String';
+    }
+
+    try {
+      final data = jsonDecode(res.body);
+      return data['success'] == true ? (data['data']['downloadUrl'] ?? data['data']) : null;
+    } catch (e) {
+      print('❌ AdminService: Failed to parse audit export response: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteAuditLog(String id) async {
+    final res = await _api.delete('/admin/audit-logs/$id');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
   Future<bool> retryPayout(String transactionId) async {
     final res = await _api.post('/admin/deals/$transactionId/retry-payout');
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> cancelDeal(String transactionId) async {
     final res = await _api.post('/deals/$transactionId/cancel');
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> initiateRefund(String transactionId, String reason) async {
+    final res = await _api.post('/admin/deals/$transactionId/refund', body: {'reason': reason});
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200 || data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   // ─── DISPUTE RESOLUTION ───────────────────────────────────────────────────
@@ -160,18 +265,34 @@ class AdminService {
       'decision': decision,
       'resolution': resolution,
     });
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> addDisputeNote(String transactionId, String note) async {
+    final res = await _api.post('/admin/disputes/$transactionId/notes', body: {'note': note});
     return jsonDecode(res.body)['success'] ?? false;
+  }
+
+  Future<Map<String, dynamic>> getDisputeDetail(String transactionId) async {
+    final res = await _api.get('/admin/disputes/$transactionId');
+    return Map<String, dynamic>.from(jsonDecode(res.body));
   }
 
   // ─── BLACKLIST ────────────────────────────────────────────────────────────
   Future<bool> banPhone(String phone, String reason) async {
     final res = await _api.post('/admin/ban-phone', body: {'phone': phone, 'reason': reason});
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> unbanPhone(String phone) async {
     final res = await _api.post('/admin/unban-phone', body: {'phone': phone});
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<List<BlacklistItem>> getBlacklist() async {
@@ -183,10 +304,47 @@ class AdminService {
     return [];
   }
 
+  // ─── USER MANAGEMENT ─────────────────────────────────────────────────────
+  Future<AppUser?> lookupUser(String phone) async {
+    final res = await _api.get('/admin/users/$phone');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] != null) {
+      return AppUser.fromJson(data['data']);
+    }
+    return null;
+  }
+
+  Future<bool> freezeAccount(String phone, String reason) async {
+    final res = await _api.post('/admin/users/$phone/freeze', body: {'reason': reason});
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> unfreezeAccount(String phone) async {
+    final res = await _api.delete('/admin/users/$phone/freeze');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<List<AppUser>> listFrozenAccounts() async {
+    final res = await _api.get('/admin/users/frozen');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] is List) {
+      return (data['data'] as List).map((u) => AppUser.fromJson(u)).toList();
+    }
+    return [];
+  }
+
   // ─── ADMIN MANAGEMENT ────────────────────────────────────────────────────
   Future<bool> createAdmin(Map<String, dynamic> body) async {
     final res = await _api.post('/admin/create', body: body);
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (res.statusCode >= 200 && res.statusCode < 300 && data['success'] == true) {
+      return true;
+    }
+    throw Exception(data['message'] ?? 'An unknown error occurred');
   }
 
   Future<List<Admin>> listAdmins() async {
@@ -200,7 +358,9 @@ class AdminService {
 
   Future<bool> updateAdminPermissions(String adminId, List<String> permissions) async {
     final res = await _api.patch('/admin/$adminId/permissions', body: {'permissions': permissions});
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> updatePassword(String currentPassword, String newPassword) async {
@@ -208,18 +368,33 @@ class AdminService {
       'currentPassword': currentPassword,
       'newPassword': newPassword,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> deleteAdmin(String id) async {
     final res = await _api.delete('/admin/$id');
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<List<String>> getAllPermissions() async {
+    final res = await _api.get('/admin/permissions');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] is List) {
+       return List<String>.from(data['data']);
+    }
+    return [];
   }
 
   // ─── M-PESA TOOLS ─────────────────────────────────────────────────────────
   Future<bool> registerC2B() async {
     final res = await _api.post('/admin/mpesa/c2b/register');
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> simulateC2B(double amount, String msisdn, String billRef) async {
@@ -228,12 +403,16 @@ class AdminService {
       'msisdn': msisdn,
       'billRefNumber': billRef,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> triggerReversal(String transactionId, String remarks) async {
     final res = await _api.post('/admin/transactions/$transactionId/reversal', body: {'remarks': remarks});
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> b2bPaybill({
@@ -248,12 +427,16 @@ class AdminService {
       'accountReference': accountReference,
       'remarks': remarks,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> queryBalance(String remarks) async {
     final res = await _api.post('/admin/mpesa/balance/query', body: {'remarks': remarks});
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<List<MpesaBalance>> getLatestBalance() async {
@@ -285,7 +468,9 @@ class AdminService {
       'identifier': identifier,
       'isConversationId': isConversationId,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> registerPullTransactions({
@@ -296,7 +481,9 @@ class AdminService {
       'nominatedNumber': nominatedNumber,
       'callbackUrl': callbackUrl,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   Future<bool> queryPullTransactions({
@@ -309,7 +496,9 @@ class AdminService {
       'endDate': endDate,
       'offsetValue': offsetValue,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 
   // ─── MANUAL DISBURSEMENT ──────────────────────────────────────────────────
@@ -328,7 +517,8 @@ class AdminService {
       if (accountReference != null) 'accountReference': accountReference,
     });
     final data = jsonDecode(res.body);
-    return data['success'] == true ? data['data']['disbursementId'] : null;
+    if (data['success'] == true) return data['data']['disbursementId'];
+    throw Exception(_extractError(data));
   }
 
   Future<bool> confirmManualDisbursement(String disbursementId, String otp) async {
@@ -336,6 +526,72 @@ class AdminService {
       'disbursementId': disbursementId,
       'otp': otp,
     });
-    return jsonDecode(res.body)['success'] ?? false;
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  // ─── ANNOUNCEMENTS ───────────────────────────────────────────────────────
+  Future<bool> sendAnnouncement({required String target, required String message, required String via}) async {
+    final res = await _api.post('/admin/announcements', body: {
+      'target': target,
+      'message': message,
+      'via': via,
+    });
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  // ─── FINANCIAL STATISTICS ────────────────────────────────────────────────
+  Future<FinancialStats?> getFinancialStats() async {
+    final res = await _api.get('/admin/financials/stats');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] != null) {
+      return FinancialStats.fromJson(data['data']);
+    }
+    return null;
+  }
+
+  // ─── SYSTEM CONFIGURATION & HEALTH ──────────────────────────────────────
+  Future<WebhookConfig?> getWebhookConfig() async {
+    final res = await _api.get('/admin/config/webhooks');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] != null) {
+      return WebhookConfig.fromJson(data['data']);
+    }
+    return null;
+  }
+
+  Future<bool> updateWebhookConfig(Map<String, dynamic> delta) async {
+    final res = await _api.patch('/admin/config/webhooks', body: delta);
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<OtpConfig?> getOtpConfig() async {
+    final res = await _api.get('/admin/config/otp');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] != null) {
+      return OtpConfig.fromJson(data['data']);
+    }
+    return null;
+  }
+
+  Future<bool> updateOtpConfig(Map<String, dynamic> delta) async {
+    final res = await _api.patch('/admin/config/otp', body: delta);
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<SystemHealth?> getSystemHealth() async {
+    final res = await _api.get('/admin/system/health');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] != null) {
+      return SystemHealth.fromJson(data['data']);
+    }
+    return null;
   }
 }

@@ -19,12 +19,11 @@ class _AdminManagementPageState extends State<AdminManagementPage>
   void initState() {
     super.initState();
     print('📱 Entering AdminManagementPage');
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final p = context.read<AdminManagementProvider>();
       p.fetchAdmins();
       p.fetchPermissions();
-      p.fetchAuditLogs();
     });
   }
 
@@ -61,7 +60,6 @@ class _AdminManagementPageState extends State<AdminManagementPage>
         isScrollable: false,
         tabs: const [
           Tab(text: 'Admins'),
-          Tab(text: 'Audit Logs'),
           Tab(text: 'My Account'),
         ],
       ),
@@ -72,7 +70,6 @@ class _AdminManagementPageState extends State<AdminManagementPage>
           controller: _tabs,
           children: [
             _AdminsTab(),
-            _AuditLogsTab(),
             _MyAccountTab(),
           ],
         ),
@@ -176,9 +173,11 @@ class _AdminManagementPageState extends State<AdminManagementPage>
                     password: passCtrl.text,
                     role: role,
                   );
-                  AppUtils.showSnackBar(context,
-                      ok ? 'Admin account created' : 'Failed to create admin',
-                      isError: !ok);
+                  if (ok) {
+                    AppUtils.showSnackBar(context, 'Admin account created');
+                  } else {
+                    AppUtils.showSnackBar(context, context.read<AdminManagementProvider>().error ?? 'Failed to create admin', isError: true);
+                  }
                 },
                 child: const Text('Create'),
               ),
@@ -353,7 +352,11 @@ class _AdminRow extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await context.read<AdminManagementProvider>().deleteAdmin(admin.id);
-              AppUtils.showSnackBar(context, ok ? 'Admin deleted successfully' : 'Failed to delete admin', isError: !ok);
+              if (ok) {
+                AppUtils.showSnackBar(context, 'Admin deleted successfully');
+              } else {
+                AppUtils.showSnackBar(context, context.read<AdminManagementProvider>().error ?? 'Failed to delete admin', isError: true);
+              }
             },
             child: const Text('Delete'),
           ),
@@ -405,98 +408,17 @@ class _AdminRow extends StatelessWidget {
                 Navigator.pop(ctx);
                 final ok = await context.read<AdminManagementProvider>()
                     .updateAdminPermissions(admin.id, selected);
-                AppUtils.showSnackBar(context,
-                    ok ? 'Permissions updated' : 'Failed to update permissions',
-                    isError: !ok);
+                if (ok) {
+                  AppUtils.showSnackBar(context, 'Permissions updated');
+                } else {
+                  AppUtils.showSnackBar(context, context.read<AdminManagementProvider>().error ?? 'Failed to update permissions', isError: true);
+                }
               },
               child: const Text('Save'),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Audit Logs Tab ────────────────────────────────────────────────────────────
-class _AuditLogsTab extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<AdminManagementProvider>();
-
-    if (p.isLoading && p.auditLogs.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (p.auditLogs.isEmpty) {
-      return const Center(
-        child: Text('No audit logs', style: TextStyle(color: Color(0xFF94A3B8))),
-      );
-    }
-
-    return AppUtils.buildCard(
-      padding: EdgeInsets.zero,
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F172A),
-            border: Border(bottom: BorderSide(color: Color(0xFF1E3A5F))),
-          ),
-          child: const Row(children: [
-            Expanded(flex: 2, child: Text('ACTION',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B), letterSpacing: 0.5))),
-            Expanded(flex: 2, child: Text('PERFORMED BY',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B), letterSpacing: 0.5))),
-            Expanded(flex: 3, child: Text('DETAILS',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B), letterSpacing: 0.5))),
-            Expanded(flex: 1, child: Text('TIME',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B), letterSpacing: 0.5))),
-          ]),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: p.auditLogs.length,
-            itemBuilder: (ctx, i) {
-              final log = p.auditLogs[i];
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFF1E3A5F))),
-                ),
-                child: Row(children: [
-                  Expanded(flex: 2, child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3B82F6).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(log.action,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF3B82F6),
-                            fontWeight: FontWeight.w600)),
-                  )),
-                  const SizedBox(width: 12),
-                  Expanded(flex: 2, child: Text(log.performedBy,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)))),
-                  Expanded(flex: 3, child: Text(
-                    log.details?.toString() ?? '—',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                  )),
-                  Expanded(flex: 1, child: Text(
-                    '${log.createdAt.hour.toString().padLeft(2, '0')}:${log.createdAt.minute.toString().padLeft(2, '0')}\n'
-                    '${log.createdAt.day}/${log.createdAt.month}/${log.createdAt.year}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                  )),
-                ]),
-              );
-            },
-          ),
-        ),
-      ]),
     );
   }
 }
@@ -558,10 +480,10 @@ class _MyAccountTabState extends State<_MyAccountTab> {
                 final ok = await p.changePassword(_oldPass.text, _newPass.text);
                 if (ok) {
                   _oldPass.clear(); _newPass.clear(); _confirmPass.clear();
+                  AppUtils.showSnackBar(context, 'Password updated successfully');
+                } else {
+                  AppUtils.showSnackBar(context, p.error ?? 'Failed to update password', isError: true);
                 }
-                AppUtils.showSnackBar(context,
-                    ok ? 'Password updated successfully' : 'Failed to update password',
-                    isError: !ok);
               },
               child: p.isLoading
                   ? const SizedBox(height: 18, width: 18,

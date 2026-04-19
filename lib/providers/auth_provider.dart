@@ -24,7 +24,15 @@ class AuthProvider extends ChangeNotifier {
     _isInitialized = true;
     _isAuthenticated = _adminService.hasToken;
     if (_isAuthenticated) {
-      _currentUser = await _adminService.getProfile();
+      try {
+        _currentUser = await _adminService.getProfile();
+      } catch (e) {
+        if (e.toString().contains('UNAUTHORIZED')) {
+          print('AuthProvider: Token expired, logging out');
+          await logout();
+          return;
+        }
+      }
     }
     _isLoading = false;
     notifyListeners();

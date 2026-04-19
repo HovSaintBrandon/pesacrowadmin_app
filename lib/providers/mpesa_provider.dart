@@ -90,19 +90,26 @@ class MpesaProvider extends ChangeNotifier {
             offsetValue: offsetValue,
           ));
 
+  String? _error;
+  String? get error => _error;
+
   Future<bool> _run(Future<bool> Function() fn) async {
     _isLoading = true;
     _lastResult = null;
+    _error = null;
     notifyListeners();
-    bool success = false;
     try {
-      success = await fn();
+      final success = await fn();
       _lastResult = success ? 'success' : 'failed';
+      _isLoading = false;
+      notifyListeners();
+      return success;
     } catch (e) {
-      _lastResult = 'error: $e';
+      _error = e.toString().replaceFirst('Exception: ', '');
+      _lastResult = 'error';
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
-    _isLoading = false;
-    notifyListeners();
-    return success;
   }
 }
