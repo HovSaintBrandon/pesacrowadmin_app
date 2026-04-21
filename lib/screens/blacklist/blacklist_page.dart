@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils.dart';
 import '../../providers/blacklist_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class BlacklistPage extends StatefulWidget {
   const BlacklistPage({super.key});
@@ -43,15 +44,16 @@ class _BlacklistPageState extends State<BlacklistPage> {
           ),
         ),
         const SizedBox(width: 12),
-        ElevatedButton.icon(
-          onPressed: () => _showBanDialog(context),
-          icon: const Icon(Icons.block, size: 16),
-          label: const Text('Ban Phone'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFEF4444),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        if (context.watch<AuthProvider>().hasPermission('manage_blacklist'))
+          ElevatedButton.icon(
+            onPressed: () => _showBanDialog(context),
+            icon: const Icon(Icons.block, size: 16),
+            label: const Text('Ban Phone'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
           ),
-        ),
         const SizedBox(width: 8),
         IconButton(
           tooltip: 'Refresh',
@@ -116,17 +118,18 @@ class _BlacklistPageState extends State<BlacklistPage> {
                             style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13))),
                         Expanded(flex: 2, child: Text(b.bannedAt,
                             style: const TextStyle(color: Color(0xFF64748B), fontSize: 12))),
-                        SizedBox(
-                          width: 80,
-                          child: TextButton(
-                            onPressed: () => _confirmUnban(context, b.phone, provider),
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF10B981),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                        if (context.watch<AuthProvider>().hasPermission('manage_blacklist'))
+                          SizedBox(
+                            width: 80,
+                            child: TextButton(
+                              onPressed: () => _confirmUnban(context, b.phone, provider),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF10B981),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                              child: const Text('Unban', style: TextStyle(fontSize: 12)),
                             ),
-                            child: const Text('Unban', style: TextStyle(fontSize: 12)),
                           ),
-                        ),
                       ]),
                     );
                   },

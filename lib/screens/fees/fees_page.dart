@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/utils.dart';
 import '../../models/fee_config.dart';
 import '../../providers/fee_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class FeesPage extends StatefulWidget {
   const FeesPage({super.key});
@@ -87,11 +88,12 @@ class _FeesPageState extends State<FeesPage> {
                     label: const Text('Refresh'),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _startEditing(config),
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Edit Config'),
-                  ),
+                  if (context.watch<AuthProvider>().hasPermission('manage_fees'))
+                    ElevatedButton.icon(
+                      onPressed: () => _startEditing(config),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Edit Config'),
+                    ),
                 ],
               )
             else

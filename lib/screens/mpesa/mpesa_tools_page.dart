@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils.dart';
 import '../../providers/mpesa_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class MpesaToolsPage extends StatefulWidget {
   const MpesaToolsPage({super.key});
@@ -105,15 +106,11 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
 
         LayoutBuilder(builder: (ctx, c) {
           final cols = c.maxWidth > 900 ? 2 : 1;
-          return GridView.count(
-            crossAxisCount: cols,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: cols == 2 ? 1.55 : 2.2,
-            children: [
-              // ── Register C2B
+          final auth = context.watch<AuthProvider>();
+          
+          final List<Widget> visibleCards = [
+            // ── Register C2B
+            if (auth.hasPermission('configure_mpesa'))
               _card(
                 title: 'Register C2B URLs',
                 desc: 'Register validation & confirmation URLs with Safaricom. Run once per environment.',
@@ -131,7 +128,8 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                 ),
               ),
 
-              // ── Simulate C2B
+            // ── Simulate C2B
+            if (auth.hasPermission('manage_mpesa'))
               _card(
                 title: 'Simulate C2B Payment',
                 desc: 'Sandbox only. BillRefNumber must match an existing transactionId.',
@@ -161,7 +159,8 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                 ]),
               ),
 
-              // ── B2B Paybill
+            // ── B2B Paybill
+            if (auth.hasPermission('manage_mpesa'))
               _card(
                 title: 'B2B PayBill',
                 desc: 'Admin-initiated business-to-business M-Pesa payment.',
@@ -202,7 +201,8 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                 ]),
               ),
 
-              // ── Balance Query + Fetch
+            // ── Balance Query + Fetch
+            if (auth.hasPermission('view_mpesa_balance'))
               _card(
                 title: 'Account Balance',
                 desc: 'Query M-Pesa B2C balance. Result logged asynchronously via webhook.',
@@ -228,7 +228,8 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                 ]),
               ),
 
-              // ── Query Transaction Status
+            // ── Query Transaction Status
+            if (auth.hasPermission('query_mpesa_receipt'))
               _card(
                 title: 'Query Transaction Status',
                 desc: 'Check status of an M-Pesa transaction by receipt or ConversationID.',
@@ -261,7 +262,8 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                 ]),
               ),
 
-              // ── Pull Transactions Register
+            // ── Pull Transactions Register
+            if (auth.hasPermission('configure_mpesa'))
               _card(
                 title: 'Register Pull Transactions',
                 desc: '⚠ One-time setup. Registers shortcode with Safaricom Pull API.',
@@ -291,7 +293,8 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                 ]),
               ),
 
-              // ── Pull Transactions Query
+            // ── Pull Transactions Query
+            if (auth.hasPermission('manage_mpesa'))
               _card(
                 title: 'Query Pull Transactions',
                 desc: 'Fetch missed C2B transactions within a time window (max 48 hrs).',
@@ -322,7 +325,20 @@ class _MpesaToolsPageState extends State<MpesaToolsPage> {
                   ),
                 ]),
               ),
-            ],
+          ];
+
+          if (visibleCards.isEmpty) {
+            return const Center(child: Text('You do not have permission to use any M-Pesa tools.'));
+          }
+
+          return GridView.count(
+            crossAxisCount: cols,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: cols == 2 ? 1.55 : 2.2,
+            children: visibleCards,
           );
         }),
       ]),

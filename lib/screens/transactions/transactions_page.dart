@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/utils.dart';
 import '../../providers/deal_provider.dart';
 import '../../providers/mpesa_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class TransactionsPage extends StatefulWidget {
   const TransactionsPage({super.key});
@@ -98,27 +99,29 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 textStyle: const TextStyle(fontSize: 13),
               ),
             ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final url = await context.read<DealProvider>().exportTransactions(
-                  fromDate: _fromDate.isEmpty ? null : _fromDate,
-                  toDate: _toDate.isEmpty ? null : _toDate,
-                  status: _statusFilter == 'all' ? null : _statusFilter,
-                );
-                if (url != null) {
-                   AppUtils.showSnackBar(context, 'Export generated');
-                } else {
-                   AppUtils.showSnackBar(context, context.read<DealProvider>().error ?? 'Export failed', isError: true);
-                }
-              },
-              icon: const Icon(Icons.download, size: 14, color: Color(0xFF10B981)),
-              label: const Text('Export CSV', style: TextStyle(color: Color(0xFF10B981))),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF10B981)),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            if (context.watch<AuthProvider>().hasPermission('manage_transactions')) ...[
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final url = await context.read<DealProvider>().exportTransactions(
+                    fromDate: _fromDate.isEmpty ? null : _fromDate,
+                    toDate: _toDate.isEmpty ? null : _toDate,
+                    status: _statusFilter == 'all' ? null : _statusFilter,
+                  );
+                  if (url != null) {
+                    AppUtils.showSnackBar(context, 'Export generated');
+                  } else {
+                    AppUtils.showSnackBar(context, context.read<DealProvider>().error ?? 'Export failed', isError: true);
+                  }
+                },
+                icon: const Icon(Icons.download, size: 14, color: Color(0xFF10B981)),
+                label: const Text('Export CSV', style: TextStyle(color: Color(0xFF10B981))),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF10B981)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
               ),
-            ),
+            ],
           ]),
           const SizedBox(height: 12),
 
@@ -378,7 +381,7 @@ class _DetailPanel extends StatelessWidget {
           ]),
         )),
         const SizedBox(height: 16),
-        if (d.mpesaReceipt != null) ...[
+        if (d.mpesaReceipt != null && context.watch<AuthProvider>().hasPermission('query_mpesa_receipt')) ...[
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
@@ -396,7 +399,7 @@ class _DetailPanel extends StatelessWidget {
             ),
           ),
         ],
-        if (d.status == 'held') ...[
+        if (d.status == 'held' && context.watch<AuthProvider>().hasPermission('manage_transactions')) ...[
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,

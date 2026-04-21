@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/system_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../core/utils.dart';
 import '../../core/notifications.dart';
 
@@ -72,17 +73,18 @@ class _SystemConfigPageState extends State<SystemConfigPage> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      ElevatedButton(
-                        onPressed: () async {
-                          final ok = await systemProvider.updateWebhooks({'primaryUrl': _webhookController.text});
-                          if (ok) {
-                            AppNotifications.showSuccess(context, 'Webhook updated');
-                          } else {
-                            AppNotifications.showError(context, systemProvider.error ?? 'Failed to update webhook');
-                          }
-                        },
-                        child: const Text('Update'),
-                      ),
+                      if (context.watch<AuthProvider>().hasPermission('manage_webhooks'))
+                        ElevatedButton(
+                          onPressed: () async {
+                            final ok = await systemProvider.updateWebhooks({'primaryUrl': _webhookController.text});
+                            if (ok) {
+                              AppNotifications.showSuccess(context, 'Webhook updated');
+                            } else {
+                              AppNotifications.showError(context, systemProvider.error ?? 'Failed to update webhook');
+                            }
+                          },
+                          child: const Text('Update'),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -121,17 +123,18 @@ class _SystemConfigPageState extends State<SystemConfigPage> {
                               ),
                             ),
                             const SizedBox(width: 16),
-                            ElevatedButton(
-                              onPressed: () async {
-                                final ok = await systemProvider.updateOtp({'adminPhone': _otpPhoneController.text});
-                                if (ok) {
-                                  AppNotifications.showSuccess(context, 'Admin phone updated');
-                                } else {
-                                  AppNotifications.showError(context, systemProvider.error ?? 'Failed to update phone');
-                                }
-                              },
-                              child: const Text('Save'),
-                            ),
+                              if (context.watch<AuthProvider>().hasPermission('configure_otp'))
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final ok = await systemProvider.updateOtp({'adminPhone': _otpPhoneController.text});
+                                    if (ok) {
+                                      AppNotifications.showSuccess(context, 'Admin phone updated');
+                                    } else {
+                                      AppNotifications.showError(context, systemProvider.error ?? 'Failed to update phone');
+                                    }
+                                  },
+                                  child: const Text('Save'),
+                                ),
                           ],
                         ),
                         const SizedBox(height: 16),

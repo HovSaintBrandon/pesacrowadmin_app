@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../core/utils.dart';
 import '../../core/notifications.dart';
 
@@ -166,30 +167,31 @@ class _UsersPageState extends State<UsersPage> {
               ],
             ),
           ),
-          Column(
-            children: [
-              if (user.isFrozen)
-                ElevatedButton(
-                  onPressed: () async {
-                    final ok = await context.read<UserProvider>().unfreezeUser(user.phone);
-                    if (ok) {
-                      AppNotifications.showSuccess(context, 'Account unfrozen');
-                      context.read<UserProvider>().fetchFrozenUsers();
-                    } else {
-                      AppNotifications.showError(context, context.read<UserProvider>().error ?? 'Failed to unfreeze');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
-                  child: const Text('Unfreeze'),
-                )
-              else
-                ElevatedButton(
-                  onPressed: () => _showFreezeDialog(user.phone),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                  child: const Text('Freeze Account'),
-                ),
-            ],
-          ),
+          if (context.watch<AuthProvider>().hasPermission('freeze_account'))
+            Column(
+              children: [
+                if (user.isFrozen)
+                  ElevatedButton(
+                    onPressed: () async {
+                      final ok = await context.read<UserProvider>().unfreezeUser(user.phone);
+                      if (ok) {
+                        AppNotifications.showSuccess(context, 'Account unfrozen');
+                        context.read<UserProvider>().fetchFrozenUsers();
+                      } else {
+                        AppNotifications.showError(context, context.read<UserProvider>().error ?? 'Failed to unfreeze');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
+                    child: const Text('Unfreeze'),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: () => _showFreezeDialog(user.phone),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                    child: const Text('Freeze Account'),
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -208,18 +210,20 @@ class _UsersPageState extends State<UsersPage> {
             leading: const Icon(Icons.block, color: Colors.redAccent),
             title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text('${user.phone} • ${user.freezeReason ?? "No reason provided"}'),
-            trailing: TextButton(
-              onPressed: () async {
-                final ok = await context.read<UserProvider>().unfreezeUser(user.phone);
-                if (ok) {
-                  AppNotifications.showSuccess(context, 'Account unfrozen');
-                  context.read<UserProvider>().fetchFrozenUsers();
-                } else {
-                  AppNotifications.showError(context, context.read<UserProvider>().error ?? 'Failed to unfreeze');
-                }
-              },
-              child: const Text('Unfreeze'),
-            ),
+            trailing: context.watch<AuthProvider>().hasPermission('freeze_account') 
+              ? TextButton(
+                  onPressed: () async {
+                    final ok = await context.read<UserProvider>().unfreezeUser(user.phone);
+                    if (ok) {
+                      AppNotifications.showSuccess(context, 'Account unfrozen');
+                      context.read<UserProvider>().fetchFrozenUsers();
+                    } else {
+                      AppNotifications.showError(context, context.read<UserProvider>().error ?? 'Failed to unfreeze');
+                    }
+                  },
+                  child: const Text('Unfreeze'),
+                )
+              : null,
           ),
         );
       },

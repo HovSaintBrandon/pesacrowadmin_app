@@ -40,14 +40,15 @@ class _AdminManagementPageState extends State<AdminManagementPage>
         const Text('Admin Management',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Spacer(),
-        ElevatedButton.icon(
-          onPressed: () => _showCreateAdminDialog(context),
-          icon: const Icon(Icons.person_add, size: 16),
-          label: const Text('Create Admin'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        if (context.watch<AuthProvider>().currentUser?.role == 'super_admin')
+          ElevatedButton.icon(
+            onPressed: () => _showCreateAdminDialog(context),
+            icon: const Icon(Icons.person_add, size: 16),
+            label: const Text('Create Admin'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
           ),
-        ),
       ]),
       const SizedBox(height: 16),
 
@@ -310,12 +311,14 @@ class _AdminRow extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
-                tooltip: 'Edit Permissions',
-                onPressed: () => _showPermissionsDialog(context),
-              ),
-              _buildDeleteButton(context),
+              if (context.watch<AuthProvider>().currentUser?.role == 'super_admin') ...[
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF64748B)),
+                  tooltip: 'Edit Permissions',
+                  onPressed: () => _showPermissionsDialog(context),
+                ),
+                _buildDeleteButton(context),
+              ],
             ],
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/utils.dart';
 import '../../models/deal.dart';
 import '../../providers/deal_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class DisputesPage extends StatefulWidget {
   const DisputesPage({super.key});
@@ -24,6 +25,7 @@ class _DisputesPageState extends State<DisputesPage> {
   Widget build(BuildContext context) {
     final dealProvider = context.watch<DealProvider>();
     final disputes = dealProvider.deals.where((d) => d.status == 'disputed').toList();
+    final auth = context.watch<AuthProvider>();
 
     if (dealProvider.isLoading && disputes.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -56,71 +58,78 @@ class _DisputesPageState extends State<DisputesPage> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: AppUtils.buildCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Text(d.transactionId,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 12),
-                      AppUtils.buildStatusBadge(d.status),
-                      const Spacer(),
-                      Text(AppUtils.formatKSh(d.amount),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(d.description,
-                        style: const TextStyle(color: Color(0xFF94A3B8))),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      const Icon(Icons.person_outline, size: 14, color: Color(0xFF64748B)),
-                      const SizedBox(width: 4),
-                      Text('Seller: ${AppUtils.formatPhone(d.sellerPhone)}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.person_outline, size: 14, color: Color(0xFF64748B)),
-                      const SizedBox(width: 4),
-                      Text('Buyer: ${AppUtils.formatPhone(d.buyerPhone)}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                    ]),
-                    if (d.disputeReason != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444).withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start, 
+                    children: [
+                      Row(children: [
+                        Text(d.transactionId,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 12),
+                        AppUtils.buildStatusBadge(d.status),
+                        const Spacer(),
+                        Text(AppUtils.formatKSh(d.amount),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text(d.description,
+                          style: const TextStyle(color: Color(0xFF94A3B8))),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        const Icon(Icons.person_outline, size: 14, color: Color(0xFF64748B)),
+                        const SizedBox(width: 4),
+                        Text('Seller: ${AppUtils.formatPhone(d.sellerPhone)}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                        const SizedBox(width: 16),
+                        const Icon(Icons.person_outline, size: 14, color: Color(0xFF64748B)),
+                        const SizedBox(width: 4),
+                        Text('Buyer: ${AppUtils.formatPhone(d.buyerPhone)}',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      ]),
+                      if (d.disputeReason != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
+                          ),
+                          child: Text(d.disputeReason!,
+                              style: const TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
                         ),
-                        child: Text(d.disputeReason!,
-                            style: const TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
-                      ),
+                      ],
+                      const SizedBox(height: 16),
+                      if (auth.hasPermission('resolve_disputes'))
+                        Row(children: [
+                          ElevatedButton.icon(
+                            onPressed: () => _showResolveDialog(context, d, 'release'),
+                            icon: const Icon(Icons.check, size: 16),
+                            label: const Text('Release'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => _showResolveDialog(context, d, 'refund'),
+                            icon: const Icon(Icons.undo, size: 16, color: Color(0xFFF59E0B)),
+                            label: const Text('Refund',
+                                style: TextStyle(color: Color(0xFFF59E0B))),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFF59E0B)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                          ),
+                        ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _showDisputeDetail(context, d),
+                          icon: const Icon(Icons.visibility),
+                          label: const Text('View Evidence & Notes'),
+                        ),
+                      ]),
                     ],
-                    const SizedBox(height: 16),
-                    Row(children: [
-                      ElevatedButton.icon(
-                        onPressed: () => _showResolveDialog(context, d, 'release'),
-                        icon: const Icon(Icons.check, size: 16),
-                        label: const Text('Release'),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => _showResolveDialog(context, d, 'refund'),
-                        icon: const Icon(Icons.undo, size: 16, color: Color(0xFFF59E0B)),
-                        label: const Text('Refund',
-                            style: TextStyle(color: Color(0xFFF59E0B))),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFF59E0B)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: () => _showDisputeDetail(context, d),
-                        icon: const Icon(Icons.visibility),
-                        label: const Text('View Evidence & Notes'),
-                      ),
-                    ]),
-                  ]),
+                  ),
                 ),
               );
             },
@@ -178,10 +187,11 @@ class _DisputesPageState extends State<DisputesPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Internal Admin Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        IconButton(
-                          icon: const Icon(Icons.add_comment, size: 20, color: Color(0xFF10B981)),
-                          onPressed: () => _showAddNoteDialog(context, deal),
-                        ),
+                        if (context.watch<AuthProvider>().hasPermission('resolve_disputes'))
+                          IconButton(
+                            icon: const Icon(Icons.add_comment, size: 20, color: Color(0xFF10B981)),
+                            onPressed: () => _showAddNoteDialog(context, deal),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -246,29 +256,24 @@ class _DisputesPageState extends State<DisputesPage> {
   }
 
   void _showResolveDialog(BuildContext context, Deal deal, String decision) {
-    // ... existing _showResolveDialog code remains the same
     final noteCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF141E33),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(decision == 'release' ? 'Release to Seller' : 'Refund Buyer'),
-        content: SizedBox(
-          width: 400,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('${deal.transactionId} — ${AppUtils.formatKSh(deal.amount)}',
-                style: const TextStyle(color: Color(0xFF94A3B8))),
+        title: Text('Resolve as ${decision.toUpperCase()}?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('This will ${decision == 'release' ? 'pay the seller' : 'refund the buyer'} the full amount.', 
+                 style: const TextStyle(color: Color(0xFF94A3B8))),
             const SizedBox(height: 16),
             TextField(
               controller: noteCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Resolution note…',
-                alignLabelWithHint: true,
-              ),
+              maxLines: 2,
+              decoration: const InputDecoration(hintText: 'Explain the resolution (optional)'),
             ),
-          ]),
+          ],
         ),
         actions: [
           TextButton(

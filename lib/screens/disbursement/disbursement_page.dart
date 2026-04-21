@@ -249,28 +249,27 @@ class _DisbursementPageState extends State<DisbursementPage> {
     final hasCompanyPerm = auth.currentUser?.permissions.contains('manage_company_disbursement') ?? false;
 
     return Row(children: [
-      _typeCard(
-        label: 'Operational Payout',
-        icon: Icons.swap_horiz,
-        desc: 'Refunds, claims, settlements',
-        selected: !_isCompanyExpense,
-        onTap: () => setState(() => _isCompanyExpense = false),
+      Expanded(
+        child: _typeCard(
+          label: 'Operational Payout',
+          icon: Icons.swap_horiz,
+          desc: 'Refunds, claims, settlements',
+          selected: !_isCompanyExpense,
+          onTap: () => setState(() => _isCompanyExpense = false),
+        ),
       ),
-      const SizedBox(width: 12),
-      _typeCard(
-        label: 'Company Expense',
-        icon: Icons.business_center_outlined,
-        desc: 'Salaries, office, profit withdrawal',
-        selected: _isCompanyExpense,
-        locked: !hasCompanyPerm,
-        onTap: () {
-          if (!hasCompanyPerm) {
-            AppUtils.showSnackBar(context, 'You lack manage_company_disbursement permission', isError: true);
-            return;
-          }
-          setState(() => _isCompanyExpense = true);
-        },
-      ),
+      if (hasCompanyPerm) ...[
+        const SizedBox(width: 12),
+        Expanded(
+          child: _typeCard(
+            label: 'Company Expense',
+            icon: Icons.business_center_outlined,
+            desc: 'Salaries, office, profit withdrawal',
+            selected: _isCompanyExpense,
+            onTap: () => setState(() => _isCompanyExpense = true),
+          ),
+        ),
+      ],
     ]);
   }
 
@@ -282,39 +281,37 @@ class _DisbursementPageState extends State<DisbursementPage> {
     bool locked = false,
     required VoidCallback onTap,
   }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF3B82F6).withOpacity(0.1) : const Color(0xFF141E33),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected ? const Color(0xFF3B82F6) : const Color(0xFF1E3A5F),
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF3B82F6).withOpacity(0.1) : const Color(0xFF141E33),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? const Color(0xFF3B82F6) : const Color(0xFF1E3A5F),
           ),
-          child: Row(children: [
-            Icon(icon, color: selected ? const Color(0xFF3B82F6) : const Color(0xFF64748B), size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Text(label, style: TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : const Color(0xFF94A3B8)
-                  )),
-                  if (locked) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.lock, size: 12, color: Color(0xFF64748B)),
-                  ],
-                ]),
-                Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
-              ]),
-            ),
-            if (selected) const Icon(Icons.check_circle, size: 16, color: Color(0xFF3B82F6)),
-          ]),
         ),
+        child: Row(children: [
+          Icon(icon, color: selected ? const Color(0xFF3B82F6) : const Color(0xFF64748B), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text(label, style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : const Color(0xFF94A3B8)
+                )),
+                if (locked) ...[
+                  const SizedBox(width: 6),
+                  const Icon(Icons.lock, size: 12, color: Color(0xFF64748B)),
+                ],
+              ]),
+              Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+            ]),
+          ),
+          if (selected) const Icon(Icons.check_circle, size: 16, color: Color(0xFF3B82F6)),
+        ]),
       ),
     );
   }
