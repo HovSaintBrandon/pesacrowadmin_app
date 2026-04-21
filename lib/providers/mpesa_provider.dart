@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/mpesa_balance.dart';
 import '../models/mpesa_balance_snapshot.dart';
+import '../models/mpesa_query_log.dart';
 import '../services/admin_service.dart';
 
 class MpesaProvider extends ChangeNotifier {
@@ -15,6 +16,11 @@ class MpesaProvider extends ChangeNotifier {
   List<MpesaBalanceSnapshot> get history => _history;
   bool get isLoading => _isLoading;
   String? get lastResult => _lastResult;
+
+  List<MpesaQueryLog> _queryLogs = [];
+  int _totalLogs = 0;
+  List<MpesaQueryLog> get queryLogs => _queryLogs;
+  int get totalLogs => _totalLogs;
 
   Future<bool> registerC2B() => _run(() => _adminService.registerC2B());
 
@@ -66,9 +72,30 @@ class MpesaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> queryTransactionStatus(String identifier, {bool isConversationId = false}) =>
-      _run(() => _adminService.queryTransactionStatus(identifier,
+  Future<bool> queryTransactionStatus(String identifier, {bool isConversationId = false}) async {
+    final ok = await _run(() => _adminService.queryTransactionStatus(identifier,
           isConversationId: isConversationId));
+    if (ok) await fetchQueryLogs();
+    return ok;
+  }
+
+  Future<bool> queryByReceipt(String receipt) async {
+    final ok = await _run(() => _adminService.queryMpesaReceipt(receipt));
+    if (ok) await fetchQueryLogs();
+    return ok;
+  }
+
+  Future<void> fetchQueryLogs({int page = 1, int limit = 50, String? identifier}) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final res = await _adminService.getMpesaQueryLogs(page: page, limit: limit, identifier: identifier);
+      _queryLogs = res['logs'];
+      _totalLogs = res['total'];
+    } catch (_) {}
+    _isLoading = false;
+    notifyListeners();
+  }
 
   Future<bool> registerPullTransactions({
     required String nominatedNumber,

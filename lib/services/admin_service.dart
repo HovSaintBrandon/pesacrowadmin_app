@@ -10,6 +10,7 @@ import '../models/mpesa_balance_snapshot.dart';
 import '../models/user.dart';
 import '../models/financial_stats.dart';
 import '../models/system_config.dart';
+import '../models/mpesa_query_log.dart';
 
 class AdminService {
   final ApiService _api = ApiService();
@@ -384,7 +385,10 @@ class AdminService {
     final res = await _api.get('/admin/permissions');
     final data = jsonDecode(res.body);
     if (data['success'] == true && data['data'] is List) {
-       return List<String>.from(data['data']);
+      return (data['data'] as List).map((p) {
+        if (p is Map) return p['key']?.toString() ?? p.toString();
+        return p.toString();
+      }).toList();
     }
     return [];
   }
@@ -473,6 +477,40 @@ class AdminService {
     throw Exception(_extractError(data));
   }
 
+  Future<bool> queryMpesaReceipt(String receipt) async {
+    final res = await _api.get('/admin/mpesa/query/$receipt');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<Map<String, dynamic>> getMpesaQueryLogs({int page = 1, int limit = 50, String? identifier}) async {
+    final query = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+      if (identifier != null && identifier.isNotEmpty) 'identifier': identifier,
+    };
+    final res = await _api.get('/admin/mpesa/status/logs', query: query);
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) {
+      final innerData = data['data'];
+      List rawList = [];
+      int total = 0;
+      if (innerData is List) {
+        rawList = innerData;
+        total = data['total'] ?? rawList.length;
+      } else if (innerData is Map) {
+        rawList = innerData['logs'] ?? innerData['data'] ?? [];
+        total = (innerData['total'] ?? data['total'] ?? rawList.length).toInt();
+      }
+      return {
+        'logs': rawList.map((e) => MpesaQueryLog.fromJson(e)).toList(),
+        'total': total,
+      };
+    }
+    return {'logs': <MpesaQueryLog>[], 'total': 0};
+  }
+
   Future<bool> registerPullTransactions({
     required String nominatedNumber,
     required String callbackUrl,
@@ -502,7 +540,7 @@ class AdminService {
   }
 
   // ─── MANUAL DISBURSEMENT ──────────────────────────────────────────────────
-  Future<String?> initiateManualDisbursement({
+  Future<Map<String, dynamic>?> initiateManualDisbursement({
     required String channel,
     required double amount,
     required String phone,
@@ -517,7 +555,26 @@ class AdminService {
       if (accountReference != null) 'accountReference': accountReference,
     });
     final data = jsonDecode(res.body);
-    if (data['success'] == true) return data['data']['disbursementId'];
+    if (data['success'] == true) return data['data'];
+    throw Exception(_extractError(data));
+  }
+
+  Future<Map<String, dynamic>?> initiateCompanyDisbursement({
+    required String channel,
+    required double amount,
+    required String phone,
+    required String remarks,
+    String? accountReference,
+  }) async {
+    final res = await _api.post('/admin/company-disbursement/initiate', body: {
+      'channel': channel,
+      'amount': amount,
+      'phone': phone,
+      'remarks': remarks,
+      if (accountReference != null) 'accountReference': accountReference,
+    });
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return data['data'];
     throw Exception(_extractError(data));
   }
 

@@ -8,6 +8,7 @@ import '../fees/fees_page.dart';
 import '../blacklist/blacklist_page.dart';
 import '../mpesa/mpesa_tools_page.dart';
 import '../mpesa/org_balances_page.dart';
+import '../mpesa/mpesa_query_logs_page.dart';
 import '../disbursement/disbursement_page.dart';
 import '../admin_management/admin_management_page.dart';
 import '../audit_logs/audit_logs_page.dart';
@@ -43,6 +44,7 @@ class _AdminShellState extends State<AdminShell> {
       {'item': const _NavItem(Icons.tune_outlined, 'Fee Management'), 'page': const FeesPage(), 'perm': 'manage_fees'},
       {'item': const _NavItem(Icons.block_outlined, 'Blacklist'), 'page': const BlacklistPage(), 'perm': 'manage_blacklist'},
       {'item': const _NavItem(Icons.phone_android_outlined, 'M-Pesa Tools'), 'page': const MpesaToolsPage(), 'perm': 'manage_mpesa'},
+      {'item': const _NavItem(Icons.list_alt_outlined, 'M-Pesa Logs'), 'page': const MpesaQueryLogsPage(), 'perm': 'manage_mpesa'},
       {'item': const _NavItem(Icons.send_outlined, 'Disbursement'), 'page': const DisbursementPage(), 'perm': 'manual_payouts'},
       {'item': const _NavItem(Icons.admin_panel_settings_outlined, 'Admin Management'), 'page': const AdminManagementPage(), 'perm': 'manage_admins'},
       {'item': const _NavItem(Icons.settings_outlined, 'System Settings'), 'page': const SystemConfigPage(), 'perm': 'manage_webhooks'},

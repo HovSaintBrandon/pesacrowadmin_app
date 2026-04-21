@@ -366,60 +366,242 @@ class _AdminRow extends StatelessWidget {
   }
 
   void _showPermissionsDialog(BuildContext context) {
-    final p = context.read<AdminManagementProvider>();
-    List<String> selected = List.from(admin.permissions);
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          backgroundColor: const Color(0xFF141E33),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text('Permissions — ${admin.name}'),
-          content: SizedBox(
-            width: 480,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(admin.email, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
-              const SizedBox(height: 16),
-              if (p.availablePermissions.isEmpty)
-                const Text('No permissions available',
-                    style: TextStyle(color: Color(0xFF94A3B8)))
-              else
-                Wrap(
-                  spacing: 6, runSpacing: 6,
-                  children: p.availablePermissions.map((perm) {
-                    final sel = selected.contains(perm);
-                    return FilterChip(
-                      label: Text(perm, style: const TextStyle(fontSize: 11)),
-                      selected: sel,
-                      onSelected: (v) => setSt(() =>
-                        v ? selected.add(perm) : selected.remove(perm)),
-                      selectedColor: const Color(0xFF10B981).withOpacity(0.2),
-                      checkmarkColor: const Color(0xFF10B981),
-                    );
-                  }).toList(),
-                ),
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final ok = await context.read<AdminManagementProvider>()
-                    .updateAdminPermissions(admin.id, selected);
-                if (ok) {
-                  AppUtils.showSnackBar(context, 'Permissions updated');
-                } else {
-                  AppUtils.showSnackBar(context, context.read<AdminManagementProvider>().error ?? 'Failed to update permissions', isError: true);
-                }
-              },
-              child: const Text('Save'),
+      barrierDismissible: false, // Prevent accidental closing during sync
+      builder: (ctx) => _PermissionsDialog(admin: admin),
+    );
+  }
+}
+
+class _PermissionsDialog extends StatefulWidget {
+  final Admin admin;
+  const _PermissionsDialog({required this.admin});
+
+  @override
+  State<_PermissionsDialog> createState() => _PermissionsDialogState();
+}
+
+class _PermissionsDialogState extends State<_PermissionsDialog> {
+  late List<String> _selected;
+  final Set<String> _syncing = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.admin.permissions);
+  }
+
+  Map<String, List<String>> _groupPermissions(List<String> perms) {
+    final Map<String, List<String>> groups = {
+      'General & Dashboard': [],
+      'Transactions & Deals': [],
+      'Users & Blacklist': [],
+      'M-Pesa Operations': [],
+      'System & Config': [],
+      'Others': [],
+    };
+
+    for (var p in perms) {
+      if (p.contains('dashboard') || p.contains('audit')) {
+        groups['General & Dashboard']!.add(p);
+      } else if (p.contains('transaction') || p.contains('dispute') || p.contains('fee')) {
+        groups['Transactions & Deals']!.add(p);
+      } else if (p.contains('user') || p.contains('blacklist') || p.contains('phone')) {
+        groups['Users & Blacklist']!.add(p);
+      } else if (p.contains('mpesa') || p.contains('disbursement') || p.contains('payout')) {
+        groups['M-Pesa Operations']!.add(p);
+      } else if (p.contains('config') || p.contains('webhook') || p.contains('otp') || p.contains('health') || p.contains('admin')) {
+        groups['System & Config']!.add(p);
+      } else {
+        groups['Others']!.add(p);
+      }
+    }
+    groups.removeWhere((k, v) => v.isEmpty);
+    return groups;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AdminManagementProvider>();
+    final groups = _groupPermissions(provider.availablePermissions);
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFF1E3A5F)),
+      ),
+      titlePadding: EdgeInsets.zero,
+      title: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFF1E3A5F))),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.security, color: Color(0xFF10B981), size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Permissions — ${widget.admin.name}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(widget.admin.email,
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.normal)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Color(0xFF64748B)),
+              onPressed: () => Navigator.pop(context),
             ),
           ],
         ),
       ),
+      content: SizedBox(
+        width: 520,
+        height: 600,
+        child: provider.isLoading && provider.availablePermissions.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                children: groups.entries.map((entry) => _buildGroup(entry.key, entry.value)).toList(),
+              ),
+      ),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      actions: [
+        if (_syncing.isNotEmpty)
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 10),
+              Text('Syncing changes...', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+            ],
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
     );
+  }
+
+  Widget _buildGroup(String title, List<String> permissions) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(title.toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFF475569),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+              )),
+        ),
+        ...permissions.asMap().entries.map((entry) {
+          final i = entry.key;
+          final p = entry.value;
+          return TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: Duration(milliseconds: 300 + (i * 50)),
+            curve: Curves.easeOutCubic,
+            builder: (ctx, val, child) => Transform.translate(
+              offset: Offset(0, 20 * (1 - val)),
+              child: Opacity(opacity: val, child: child),
+            ),
+            child: _buildPermissionItem(p),
+          );
+        }).toList(),
+        const Divider(color: Color(0xFF1E3A5F), height: 32, indent: 16, endIndent: 16),
+      ],
+    );
+  }
+
+  Widget _buildPermissionItem(String p) {
+    final isSelected = _selected.contains(p);
+    final isSyncing = _syncing.contains(p);
+    
+    String label = p.replaceAll('_', ' ');
+    label = label[0].toUpperCase() + label.substring(1);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: isSyncing ? null : () => _togglePermission(p),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF10B981).withOpacity(0.05) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                        )),
+                    Text(p, style: const TextStyle(fontSize: 10, color: Color(0xFF475569))),
+                  ],
+                ),
+              ),
+              if (isSyncing)
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                Switch(
+                  value: isSelected,
+                  onChanged: (v) => _togglePermission(p),
+                  activeColor: const Color(0xFF10B981),
+                  activeTrackColor: const Color(0xFF10B981).withOpacity(0.3),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _togglePermission(String p) async {
+    final isAdding = !_selected.contains(p);
+    
+    setState(() {
+      if (isAdding) {
+        _selected.add(p);
+      } else {
+        _selected.remove(p);
+      }
+      _syncing.add(p);
+    });
+
+    final provider = context.read<AdminManagementProvider>();
+    final ok = await provider.updateAdminPermissions(widget.admin.id, _selected);
+
+    if (mounted) {
+      setState(() {
+        _syncing.remove(p);
+        if (!ok) {
+          // Revert if failed
+          if (isAdding) {
+            _selected.remove(p);
+          } else {
+            _selected.add(p);
+          }
+          AppUtils.showSnackBar(context, provider.error ?? 'Failed to update permission', isError: true);
+        }
+      });
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/utils.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/disbursement_provider.dart';
 
 class DisbursementPage extends StatefulWidget {
@@ -11,6 +12,7 @@ class DisbursementPage extends StatefulWidget {
 
 class _DisbursementPageState extends State<DisbursementPage> {
   String _channel = 'b2c';
+  bool _isCompanyExpense = false;
   final _amount = TextEditingController();
   final _phone = TextEditingController();
   final _remarks = TextEditingController();
@@ -78,6 +80,10 @@ class _DisbursementPageState extends State<DisbursementPage> {
         ]),
         const SizedBox(height: 24),
 
+        // Type Selector
+        _buildTypeSelector(context, disb),
+        const SizedBox(height: 24),
+
         // Channel selector
         Row(children: _channels.map((c) {
           final sel = _channel == c['id'];
@@ -129,12 +135,12 @@ class _DisbursementPageState extends State<DisbursementPage> {
             child: Row(children: [
               const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Disbursement Initiated!',
                       style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w600)),
                   SizedBox(height: 4),
-                  Text('OTP sent to admin phone (254105024029). Enter below to confirm.',
+                  Text('OTP sent to ${disb.sentToPhone ?? "admin phone"}. Enter below to confirm.',
                       style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
                 ]),
               ),
@@ -226,6 +232,7 @@ class _DisbursementPageState extends State<DisbursementPage> {
       phone: _phone.text.trim(),
       remarks: _remarks.text.trim().isEmpty ? 'Manual disbursement' : _remarks.text.trim(),
       accountReference: _channel == 'paybill' ? _accountRef.text.trim() : null,
+      isCompanyExpense: _isCompanyExpense,
     );
     
     // Show notification if error occurred
@@ -233,6 +240,83 @@ class _DisbursementPageState extends State<DisbursementPage> {
     if (p.error != null) {
       AppUtils.showSnackBar(context, p.error!, isError: true);
     }
+  }
+
+  Widget _buildTypeSelector(BuildContext context, DisbursementProvider disb) {
+    if (disb.awaitingOtp) return const SizedBox();
+    
+    final auth = context.watch<AuthProvider>();
+    final hasCompanyPerm = auth.currentUser?.permissions.contains('manage_company_disbursement') ?? false;
+
+    return Row(children: [
+      _typeCard(
+        label: 'Operational Payout',
+        icon: Icons.swap_horiz,
+        desc: 'Refunds, claims, settlements',
+        selected: !_isCompanyExpense,
+        onTap: () => setState(() => _isCompanyExpense = false),
+      ),
+      const SizedBox(width: 12),
+      _typeCard(
+        label: 'Company Expense',
+        icon: Icons.business_center_outlined,
+        desc: 'Salaries, office, profit withdrawal',
+        selected: _isCompanyExpense,
+        locked: !hasCompanyPerm,
+        onTap: () {
+          if (!hasCompanyPerm) {
+            AppUtils.showSnackBar(context, 'You lack manage_company_disbursement permission', isError: true);
+            return;
+          }
+          setState(() => _isCompanyExpense = true);
+        },
+      ),
+    ]);
+  }
+
+  Widget _typeCard({
+    required String label,
+    required IconData icon,
+    required String desc,
+    required bool selected,
+    bool locked = false,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF3B82F6).withOpacity(0.1) : const Color(0xFF141E33),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? const Color(0xFF3B82F6) : const Color(0xFF1E3A5F),
+            ),
+          ),
+          child: Row(children: [
+            Icon(icon, color: selected ? const Color(0xFF3B82F6) : const Color(0xFF64748B), size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Text(label, style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : const Color(0xFF94A3B8)
+                  )),
+                  if (locked) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.lock, size: 12, color: Color(0xFF64748B)),
+                  ],
+                ]),
+                Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF475569))),
+              ]),
+            ),
+            if (selected) const Icon(Icons.check_circle, size: 16, color: Color(0xFF3B82F6)),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

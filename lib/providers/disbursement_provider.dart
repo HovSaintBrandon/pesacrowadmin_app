@@ -6,10 +6,12 @@ class DisbursementProvider extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _pendingDisbursementId;
+  String? _sentToPhone;
   String? _error;
 
   bool get isLoading => _isLoading;
   String? get pendingDisbursementId => _pendingDisbursementId;
+  String? get sentToPhone => _sentToPhone;
   String? get error => _error;
   bool get awaitingOtp => _pendingDisbursementId != null;
 
@@ -19,22 +21,37 @@ class DisbursementProvider extends ChangeNotifier {
     required String phone,
     required String remarks,
     String? accountReference,
+    bool isCompanyExpense = false,
   }) async {
     _isLoading = true;
     _error = null;
     _pendingDisbursementId = null;
+    _sentToPhone = null;
     notifyListeners();
 
     try {
-      final id = await _adminService.initiateManualDisbursement(
-        channel: channel,
-        amount: amount,
-        phone: phone,
-        remarks: remarks,
-        accountReference: accountReference,
-      );
-      if (id != null) {
-        _pendingDisbursementId = id;
+      final Map<String, dynamic>? data;
+      if (isCompanyExpense) {
+        data = await _adminService.initiateCompanyDisbursement(
+          channel: channel,
+          amount: amount,
+          phone: phone,
+          remarks: remarks,
+          accountReference: accountReference,
+        );
+      } else {
+        data = await _adminService.initiateManualDisbursement(
+          channel: channel,
+          amount: amount,
+          phone: phone,
+          remarks: remarks,
+          accountReference: accountReference,
+        );
+      }
+
+      if (data != null && data['disbursementId'] != null) {
+        _pendingDisbursementId = data['disbursementId'].toString();
+        _sentToPhone = data['sentTo']?.toString();
         _isLoading = false;
         notifyListeners();
         return true;
