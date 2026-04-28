@@ -401,9 +401,11 @@ class _PermissionsDialogState extends State<_PermissionsDialog> {
       'Transactions & Deals': [],
       'Users & Blacklist': [],
       'M-Pesa Operations': [],
+      'Platforms & Developers': [],
       'System & Config': [],
       'Others': [],
     };
+
 
     for (var p in perms) {
       if (p.contains('dashboard') || p.contains('audit')) {
@@ -414,7 +416,10 @@ class _PermissionsDialogState extends State<_PermissionsDialog> {
         groups['Users & Blacklist']!.add(p);
       } else if (p.contains('mpesa') || p.contains('disbursement') || p.contains('payout')) {
         groups['M-Pesa Operations']!.add(p);
+      } else if (p.contains('platform') || p.contains('go_live')) {
+        groups['Platforms & Developers']!.add(p);
       } else if (p.contains('config') || p.contains('webhook') || p.contains('otp') || p.contains('health') || p.contains('admin')) {
+
         groups['System & Config']!.add(p);
       } else {
         groups['Others']!.add(p);

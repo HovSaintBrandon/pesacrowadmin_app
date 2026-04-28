@@ -16,6 +16,9 @@ import '../users/users_page.dart';
 import '../financials/financials_page.dart';
 import '../announcements/announcements_page.dart';
 import '../config/system_config_page.dart';
+import '../platforms/go_live_queue_page.dart';
+import '../platforms/platforms_list_page.dart';
+
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -38,6 +41,8 @@ class _AdminShellState extends State<AdminShell> {
       {'item': const _NavItem(Icons.account_balance_outlined, 'Org Balances'), 'page': const OrgBalancesPage(), 'perm': 'view_mpesa_balance'},
       {'item': const _NavItem(Icons.insights_outlined, 'Finance'), 'page': const FinancialsPage(), 'perm': 'view_revenue'},
       {'item': const _NavItem(Icons.group_outlined, 'Users'), 'page': const UsersPage(), 'perm': 'freeze_account'},
+      {'item': const _NavItem(Icons.queue_play_next_outlined, 'Go-Live Queue'), 'page': const GoLiveQueuePage(), 'perm': 'manage_go_live'},
+      {'item': const _NavItem(Icons.business_center_outlined, 'Platforms'), 'page': const PlatformsListPage(), 'perm': 'view_platforms'},
       {'item': const _NavItem(Icons.receipt_long_outlined, 'Transactions'), 'page': const TransactionsPage(), 'perm': 'manage_transactions'},
       {'item': const _NavItem(Icons.gavel_outlined, 'Disputes'), 'page': const DisputesPage(), 'perm': 'resolve_disputes'},
       {'item': const _NavItem(Icons.campaign_outlined, 'Announcements'), 'page': const AnnouncementsPage(), 'perm': 'manage_announcements'},
@@ -53,11 +58,19 @@ class _AdminShellState extends State<AdminShell> {
 
     // Some items might share permissions or have multiple valid ones
     final availableTabs = allTabs.where((t) {
-      if (permissions.contains('*')) return true;
-      if (t['perm'] == 'manage_webhooks') {
+      if (permissions.contains('*') || currentUser?.role == 'super_admin') return true;
+      
+      final p = t['perm'] as String;
+      if (p == 'manage_webhooks') {
          return permissions.contains('manage_webhooks') || permissions.contains('configure_otp') || permissions.contains('view_system_health');
       }
-      return permissions.contains(t['perm']);
+      if (p == 'view_platforms' || p == 'manage_go_live') {
+        return permissions.contains('view_platforms') || 
+               permissions.contains('manage_platforms') || 
+               permissions.contains('manage_go_live');
+      }
+      
+      return permissions.contains(p);
     }).toList();
 
     if (availableTabs.isEmpty) {

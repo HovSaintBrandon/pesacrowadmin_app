@@ -47,8 +47,16 @@ class Deal {
       releaseFee: (fees['releaseFee'] ?? json['releaseFee'] ?? 0).toDouble(),
       mpesaReceipt: json['mpesaReceipt'],
       disputeReason: json['disputeReason'],
-      proofs: json['proofs'] != null ? List<Map<String, String>>.from((json['proofs'] as List).map((p) => Map<String, String>.from(p))) : [],
-      statusHistory: json['statusHistory'] != null ? List<Map<String, String>>.from((json['statusHistory'] as List).map((h) => Map<String, String>.from(h))) : [],
+      proofs: json['proofs'] != null
+          ? (json['proofs'] as List)
+              .map((p) => (p as Map).map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')))
+              .toList()
+          : [],
+      statusHistory: json['statusHistory'] != null
+          ? (json['statusHistory'] as List)
+              .map((h) => (h as Map).map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')))
+              .toList()
+          : [],
     );
   }
 

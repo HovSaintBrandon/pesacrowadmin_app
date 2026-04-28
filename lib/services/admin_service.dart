@@ -11,6 +11,9 @@ import '../models/user.dart';
 import '../models/financial_stats.dart';
 import '../models/system_config.dart';
 import '../models/mpesa_query_log.dart';
+import '../models/go_live_request.dart';
+import '../models/platform.dart';
+
 
 class AdminService {
   final ApiService _api = ApiService();
@@ -650,5 +653,66 @@ class AdminService {
       return SystemHealth.fromJson(data['data']);
     }
     return null;
+  }
+
+  // ─── PLATFORM MANAGEMENT ────────────────────────────────────────────────
+  Future<List<GoLiveRequest>> getGoLiveRequests() async {
+    final res = await _api.get('/admin/go-live-requests');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] is List) {
+      return (data['data'] as List).map((r) => GoLiveRequest.fromJson(r)).toList();
+    }
+    return [];
+  }
+
+  Future<bool> approveGoLiveRequest(String id) async {
+    final res = await _api.post('/admin/go-live-requests/$id/approve');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> rejectGoLiveRequest(String id, String reason) async {
+    final res = await _api.post('/admin/go-live-requests/$id/reject', body: {'reason': reason});
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<List<Platform>> getPlatforms() async {
+    final res = await _api.get('/admin/platforms');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true && data['data'] is List) {
+      return (data['data'] as List).map((p) => Platform.fromJson(p)).toList();
+    }
+    return [];
+  }
+
+  Future<bool> togglePlatformFreeze(String id) async {
+    final res = await _api.post('/admin/platforms/$id/freeze');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> rotatePlatformKey(String id) async {
+    final res = await _api.post('/admin/platforms/$id/rotate-key');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> updatePlatform(String id, Map<String, dynamic> body) async {
+    final res = await _api.patch('/admin/platforms/$id', body: body);
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
+  }
+
+  Future<bool> deletePlatform(String id) async {
+    final res = await _api.delete('/admin/platforms/$id');
+    final data = jsonDecode(res.body);
+    if (data['success'] == true) return true;
+    throw Exception(_extractError(data));
   }
 }

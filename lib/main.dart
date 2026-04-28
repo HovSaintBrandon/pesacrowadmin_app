@@ -13,6 +13,8 @@ import 'providers/user_provider.dart';
 import 'providers/financials_provider.dart';
 import 'providers/system_provider.dart';
 import 'providers/announcement_provider.dart';
+import 'providers/platform_provider.dart';
+
 import 'screens/auth/login_page.dart';
 import 'screens/shell/admin_shell.dart';
 import 'services/api_service.dart';
@@ -36,6 +38,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => FinancialsProvider()),
         ChangeNotifierProvider(create: (_) => SystemProvider()),
         ChangeNotifierProvider(create: (_) => AnnouncementProvider()),
+        ChangeNotifierProvider(create: (_) => PlatformProvider()),
       ],
       child: const PesaCrowAdminApp(),
     ),

@@ -68,8 +68,9 @@ class AppUtils {
     }
   }
 
-  static Widget buildCard({required Widget child, EdgeInsets? padding}) {
+  static Widget buildCard({required Widget child, EdgeInsets? padding, EdgeInsets? margin}) {
     return Container(
+      margin: margin,
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF141E33),
