@@ -25,10 +25,10 @@ class Platform {
     return Platform(
       id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
-      phone: json['phone'] ?? '',
+      phone: json['platformPhone'] ?? json['phone'] ?? '',
       email: json['email'] ?? '',
       webhookUrl: json['webhookUrl'] ?? '',
-      settlementPhone: json['settlementPhone'] ?? '',
+      settlementPhone: json['settlementPhone'] ?? json['settlement_phone'] ?? '',
       isActive: json['isActive'] ?? true,
       apiKey: json['apiKey'],
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
@@ -39,7 +39,7 @@ class Platform {
     return {
       'id': id,
       'name': name,
-      'phone': phone,
+      'platformPhone': phone,
       'email': email,
       'webhookUrl': webhookUrl,
       'settlementPhone': settlementPhone,

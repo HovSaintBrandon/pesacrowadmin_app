@@ -23,7 +23,8 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
   }
 
   void _showEditDialog(Platform platform) {
-    final phoneController = TextEditingController(text: platform.settlementPhone);
+    final platformPhoneController = TextEditingController(text: platform.phone);
+    final settlementPhoneController = TextEditingController(text: platform.settlementPhone);
     final webhookController = TextEditingController(text: platform.webhookUrl);
 
     showDialog(
@@ -35,8 +36,15 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: phoneController,
+              controller: platformPhoneController,
+              decoration: const InputDecoration(labelText: 'Platform Phone'),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: settlementPhoneController,
               decoration: const InputDecoration(labelText: 'Settlement Phone'),
+              keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
             TextField(
@@ -50,7 +58,8 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
           ElevatedButton(
             onPressed: () async {
               final ok = await context.read<PlatformProvider>().updatePlatform(platform.id, {
-                'settlementPhone': phoneController.text,
+                'platformPhone': platformPhoneController.text,
+                'settlementPhone': settlementPhoneController.text,
                 'webhookUrl': webhookController.text,
               });
               Navigator.pop(ctx);
@@ -167,9 +176,9 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
     return AppUtils.buildCard(
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 24,
@@ -186,14 +195,6 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
                   children: [
                     Text(p.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     Text(p.email, style: const TextStyle(color: Color(0xFF64748B))),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildInfoChip(Icons.phone, p.phone),
-                        const SizedBox(width: 12),
-                        _buildInfoChip(Icons.account_balance_wallet_outlined, 'Settlement: ${p.settlementPhone}'),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -212,30 +213,34 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
           ),
           const Divider(height: 32, color: Color(0xFF1E293B)),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Webhook: ', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-              Expanded(
-                child: Text(
-                  p.webhookUrl,
-                  style: const TextStyle(fontSize: 12, color: Colors.blueAccent),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              Expanded(child: _buildDetailItem(Icons.phone_rounded, p.phone, 'Platform Phone')),
+              const SizedBox(width: 16),
+              Expanded(child: _buildDetailItem(Icons.account_balance_wallet_rounded, p.settlementPhone, 'Settlement Phone')),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildDetailItem(Icons.webhook_rounded, p.webhookUrl, 'Webhook URL', isUrl: true),
+          const Divider(height: 32, color: Color(0xFF1E293B)),
+          Row(
+            children: [
               if (canManage) ...[
-                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => _showEditDialog(p),
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit'),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Edit Details'),
                 ),
+                const SizedBox(width: 12),
                 TextButton.icon(
                   onPressed: () => _confirmRotateKey(p),
-                  icon: const Icon(Icons.key, size: 16, color: Colors.orangeAccent),
+                  icon: const Icon(Icons.key_outlined, size: 18, color: Colors.orangeAccent),
                   label: const Text('Rotate Key', style: TextStyle(color: Colors.orangeAccent)),
                 ),
+                const Spacer(),
                 IconButton(
                   onPressed: () => _confirmDelete(p),
-                  icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
                   tooltip: 'Delete Platform',
                 ),
               ],
@@ -246,13 +251,29 @@ class _PlatformsListPageState extends State<PlatformsListPage> {
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildDetailItem(IconData icon, String value, String label, {bool isUrl = false}) {
+    final displayValue = value.isEmpty ? 'Not Set' : value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 14, color: const Color(0xFF64748B)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5)),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: const Color(0xFF94A3B8)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                displayValue,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isUrl && value.isNotEmpty ? Colors.blueAccent : const Color(0xFFCBD5E1),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

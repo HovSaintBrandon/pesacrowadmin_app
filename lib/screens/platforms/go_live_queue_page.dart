@@ -76,92 +76,184 @@ class _GoLiveQueuePageState extends State<GoLiveQueuePage> {
           const Text('Review and approve production access requests from developers.', style: TextStyle(color: Color(0xFF64748B))),
           const SizedBox(height: 24),
 
-          AppUtils.buildCard(
-            child: provider.isLoading
-                ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
-                : provider.goLiveRequests.isEmpty
-                    ? const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No pending requests found.')))
-                    : _buildTable(provider.goLiveRequests, canManage),
-          ),
+          if (provider.isLoading)
+            const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
+          else if (provider.goLiveRequests.isEmpty)
+            const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No active requests found.')))
+          else
+            _buildList(provider.goLiveRequests, canManage),
         ],
       ),
     );
   }
 
-  Widget _buildTable(List<GoLiveRequest> requests, bool canManage) {
-    return DataTable(
-      columnSpacing: 24,
-      columns: const [
-        DataColumn(label: Text('Developer')),
-        DataColumn(label: Text('Contact')),
-        DataColumn(label: Text('Website / Webhook')),
-        DataColumn(label: Text('Date')),
-        DataColumn(label: Text('Status')),
-        DataColumn(label: Text('Actions')),
-      ],
-      rows: requests.map((req) {
-        return DataRow(cells: [
-          DataCell(Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(req.developerName, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(req.developerEmail, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-            ],
-          )),
-          DataCell(Text(req.developerPhone)),
-          DataCell(Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(req.websiteUrl, style: const TextStyle(fontSize: 12, color: Colors.blueAccent), overflow: TextOverflow.ellipsis),
-              Text(req.webhookUrl, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis),
-            ],
-          )),
-          DataCell(Text(DateFormat('MMM dd, yyyy').format(req.createdAt))),
-          DataCell(_buildStatusTag(req.status)),
-          DataCell(
-            req.status == 'pending' && canManage
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.check_circle, color: Colors.greenAccent),
-                        onPressed: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Approve Request?'),
-                              content: Text('This will create the platform and email API credentials to ${req.developerName}.'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Approve')),
-                              ],
-                            ),
-                          );
-                          if (confirm == true) {
-                            final ok = await context.read<PlatformProvider>().approveGoLiveRequest(req.id);
-                            if (ok) {
-                              AppNotifications.showSuccess(context, 'Request approved successfully');
-                            } else {
-                              AppNotifications.showError(context, context.read<PlatformProvider>().error ?? 'Approval failed');
-                            }
-                          }
-                        },
-                        tooltip: 'Approve',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.cancel, color: Colors.redAccent),
-                        onPressed: () => _showRejectDialog(req.id),
-                        tooltip: 'Reject',
-                      ),
-                    ],
-                  )
-                : const Text('-'),
-          ),
-        ]);
-      }).toList(),
+  Widget _buildList(List<GoLiveRequest> requests, bool canManage) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: requests.length,
+      itemBuilder: (ctx, i) {
+        final req = requests[i];
+        return _buildRequestCard(req, canManage);
+      },
     );
+  }
+
+  Widget _buildRequestCard(GoLiveRequest req, bool canManage) {
+    return AppUtils.buildCard(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(req.developerName.isEmpty ? 'Unknown Developer' : req.developerName, 
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(req.developerEmail, style: const TextStyle(color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+              _buildStatusTag(req.status),
+            ],
+          ),
+          const Divider(height: 32, color: Color(0xFF1E293B)),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 600;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoItem(Icons.phone_rounded, req.developerPhone, 'Phone'),
+                        const SizedBox(height: 12),
+                        _buildInfoItem(Icons.language_rounded, req.websiteUrl, 'Website', isUrl: true),
+                      ],
+                    ),
+                  ),
+                  if (isWide) const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoItem(Icons.calendar_today_rounded, DateFormat('MMM dd, yyyy').format(req.createdAt), 'Submitted'),
+                        const SizedBox(height: 12),
+                        _buildInfoItem(Icons.webhook_rounded, req.webhookUrl, 'Webhook', isUrl: true),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          if (req.status == 'pending' && canManage) ...[
+            const Divider(height: 32, color: Color(0xFF1E293B)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _showRejectDialog(req.id),
+                  icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent, size: 20),
+                  label: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () => _confirmApproval(req),
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                  label: const Text('Approve & Go Live'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (req.status == 'rejected' && req.rejectionReason != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.redAccent, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Rejection Reason: ${req.rejectionReason}',
+                      style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String value, String label, {bool isUrl = false}) {
+    final displayValue = value.isEmpty ? 'N/A' : value;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5)),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: const Color(0xFF94A3B8)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                displayValue,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isUrl && value.isNotEmpty ? Colors.blueAccent : const Color(0xFFCBD5E1),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmApproval(GoLiveRequest req) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        title: const Text('Approve Request?'),
+        content: Text('This will create the platform and email API credentials to ${req.developerName}.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Approve'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final ok = await context.read<PlatformProvider>().approveGoLiveRequest(req.id);
+      if (ok) {
+        AppNotifications.showSuccess(context, 'Request approved successfully');
+      } else {
+        AppNotifications.showError(context, context.read<PlatformProvider>().error ?? 'Approval failed');
+      }
+    }
   }
 
   Widget _buildStatusTag(String status) {

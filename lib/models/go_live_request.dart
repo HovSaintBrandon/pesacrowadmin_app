@@ -24,10 +24,10 @@ class GoLiveRequest {
   factory GoLiveRequest.fromJson(Map<String, dynamic> json) {
     return GoLiveRequest(
       id: json['_id'] ?? json['id'] ?? '',
-      developerName: json['developerName'] ?? '',
-      developerEmail: json['developerEmail'] ?? '',
-      developerPhone: json['developerPhone'] ?? '',
-      websiteUrl: json['websiteUrl'] ?? '',
+      developerName: json['developerName'] ?? json['name'] ?? '',
+      developerEmail: json['developerEmail'] ?? json['email'] ?? '',
+      developerPhone: json['developerPhone'] ?? json['phone'] ?? json['platformPhone'] ?? '',
+      websiteUrl: json['websiteUrl'] ?? json['website'] ?? '',
       webhookUrl: json['webhookUrl'] ?? '',
       rejectionReason: json['rejectionReason'],
       status: json['status'] ?? 'pending',
